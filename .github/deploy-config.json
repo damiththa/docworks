@@ -1,0 +1,10 @@
+{
+  "dev": {
+    "auto_deploy_on_push": false,
+    "active_providers": ["box"]
+  },
+  "prod": {
+    "auto_deploy_on_push": false,
+    "active_providers": ["box"]
+  }
+}

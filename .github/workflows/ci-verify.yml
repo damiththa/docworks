@@ -45,8 +45,9 @@ jobs:
             exit 1
           fi
 
-      - name: Verify required entrypoints, workflows, and Dockerfiles exist
+      - name: Verify required entrypoints, workflows, and deploy config
         run: |
+          python3 -m json.tool .github/deploy-config.json >/dev/null
           test -f apps/scrubdoc/main.py
           test -f apps/scrubdoc/Dockerfile
           test -f apps/diffdoc/main.py

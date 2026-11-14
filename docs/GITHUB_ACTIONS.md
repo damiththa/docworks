@@ -6,8 +6,31 @@ DocWorks uses **GitHub Actions** with **GCP Workload Identity Federation (OIDC)*
 
 | Workflow | File | Trigger | Purpose |
 | --- | --- | --- | --- |
-| **CI Static Checks** | `.github/workflows/ci-verify.yml` | `push` / `pull_request` on `main`, `dev` | Runs Python bytecode compile check (`python3 -m compileall`), shell syntax validation (`bash -n deploy/*.sh`), legacy string guard, and required structure checks. |
-| **Deploy DocWorks** | `.github/workflows/deploy.yml` | `workflow_dispatch` (manual), optional gated `push` to `dev` / `main` | Preflight-verifies Secret Manager versions, builds app Docker images (`scrubdoc` / `diffdoc`), pushes to Artifact Registry (`us-central1`), deploys to Cloud Run, and smoke-tests `/health`, `/api/health`, `/privacy`, `/terms`, `/template`. |
+| **CI Static Checks** | `.github/workflows/ci-verify.yml` | `push` / `pull_request` on `main`, `dev` | Runs Python bytecode compile check (`python3 -m compileall`), shell syntax validation (`bash -n deploy/*.sh`), JSON config checks, legacy string guard, and required file assertions. |
+| **Deploy DocWorks** | `.github/workflows/deploy.yml` | `workflow_dispatch` (manual) or `push` to `dev` / `main` | Resolves `.github/deploy-config.json` across active providers (`box`, and later `dropbox`, `gdrive`), preflight-verifies Secret Manager versions, builds `scrubdoc` / `diffdoc` images, pushes to Artifact Registry (`us-central1`), deploys Cloud Run services, and smoke-tests `/health`, `/api/health`, `/privacy`, `/terms`, `/template`. |
+
+---
+
+## Solo Developer PR-to-`main` & Multi-Provider Flow
+
+- **No required reviewers / branch protection bottleneck:** Because this is a solo-owner repository, `dev` and `prod` GitHub Environments do **not** require manual reviewer approval. Once `prod.auto_deploy_on_push` is enabled in `.github/deploy-config.json`, merging a PR to `main` deploys directly to PROD (`docworks-514722`).
+- **Centralized Multi-Provider Manifest (`.github/deploy-config.json`):**
+  ```json
+  {
+    "dev": {
+      "auto_deploy_on_push": false,
+      "active_providers": ["box"]
+    },
+    "prod": {
+      "auto_deploy_on_push": false,
+      "active_providers": ["box"]
+    }
+  }
+  ```
+  - Right now both `auto_deploy_on_push` flags stay `false` so documentation/infra pushes never deploy unexpectedly before Box PROD credentials are populated or owner approval is given.
+  - To expand to **Dropbox** or **Google Drive**, provision their GCP Secret Manager containers (`./deploy/setup_gcp_prod.sh --providers box,dropbox,gdrive`), populate their OAuth secrets, and add `"dropbox"` / `"gdrive"` to `active_providers` — `.github/workflows/deploy.yml` automatically fans out a 2D `app x provider` matrix cleanly inside the same single `docworks-514722` GCP project.
+- **Optional GitHub Variable Overrides (`Settings -> Secrets and variables -> Actions -> Variables`):** `AUTO_DEPLOY_DEV`, `AUTO_DEPLOY_PROD`, `ACTIVE_DEV_PROVIDERS`, `ACTIVE_PROD_PROVIDERS`, `FREE_SCRUB_LIMIT`, `FREE_DIFF_LIMIT`, `FREE_RADAR_FIX_LIMIT`, `SUPPORT_EMAIL`.
+- **Manual Deploys:** **Actions -> Deploy DocWorks -> Run workflow** lets you select `environment` (`dev` | `prod`), `apps` (`all` | `scrubdoc` | `diffdoc`), and `provider` (`all_active` | `box` | `dropbox` | `gdrive`) on demand.
 
 ---
 
@@ -24,6 +47,7 @@ Provisioned via [`deploy/setup_gcp_wif.sh`](../deploy/setup_gcp_wif.sh), scoped 
 - **Cloud Run Services (`box`):**
   - `scrubdoc` -> `safeshare` (preserves `https://safeshare-4m25thqnbq-uc.a.run.app` and DEV Box credentials `BOX_CLIENT_ID` / `BOX_CLIENT_SECRET`)
   - `diffdoc` -> `boxdiff` (preserves `https://boxdiff-4m25thqnbq-uc.a.run.app` and DEV Box credentials `BOXDIFF_CLIENT_ID` / `BOXDIFF_CLIENT_SECRET`)
+- **Future DEV providers (`dropbox`, `gdrive`):** deploy as `<app>-<provider>` inside `safeshare-box`.
 
 ### PROD (`docworks-514722` / Project `#746704433311`)
 
@@ -31,7 +55,8 @@ Provisioned via [`deploy/setup_gcp_wif.sh`](../deploy/setup_gcp_wif.sh), scoped 
 - **Deployer SA:** `github-deployer@docworks-514722.iam.gserviceaccount.com`
 - **Runtime SA:** `docworks-prod-runner@docworks-514722.iam.gserviceaccount.com`
 - **Artifact Registry:** `us-central1-docker.pkg.dev/docworks-514722/docworks-apps`
-- **Cloud Run Services:** `<app>-<provider>` (e.g., `scrubdoc-box`, `diffdoc-box`, and future `scrubdoc-dropbox`, `diffdoc-gdrive`)
+- **Cloud Run Services:** `<app>-<provider>` (`scrubdoc-box`, `diffdoc-box`, and later `scrubdoc-dropbox`, `diffdoc-dropbox`, `scrubdoc-gdrive`, `diffdoc-gdrive`)
+- **Firestore Collections:** `entitlements_<provider>` inside the single `(default)` Native Firestore database (isolates users by provider while sharing `ScrubDoc + DiffDoc` bundle entitlements per provider).
 - **Secret Manager Bindings:** `<PROVIDER>_<APP>_CLIENT_ID`, `<PROVIDER>_<APP>_CLIENT_SECRET`, `HMAC_PEPPER_<PROVIDER>`
 
 ### Least-Privilege IAM on `github-deployer`
@@ -40,35 +65,14 @@ Each `github-deployer@<project>.iam.gserviceaccount.com` holds only:
 - `roles/artifactregistry.writer` (push Docker images)
 - `roles/run.admin` (deploy Cloud Run services & inspect URLs)
 - `roles/secretmanager.viewer` (preflight check that secret versions are `ENABLED`; cannot read secret plaintext)
-- `roles/iam.serviceAccountUser` (scoped **only** to the target runtime SA, not project-wide)
+- `roles/iam.serviceAccountUser` (scoped **only** to the target runtime SA)
 - `roles/iam.workloadIdentityUser` (bound to GitHub repo `damiththa/docworks`)
 
 ---
 
-## Safety Gates & GitHub Settings
+## Secret Manager Readiness Before First Box PROD Deploy
 
-### 1. Push-to-Deploy Gate (`AUTO_DEPLOY_*` Repository Variables)
-
-Automatic deploys on `push` to `dev` or `main` are **disabled by default** until you opt in via GitHub **Settings -> Secrets and variables -> Actions -> Variables**:
-
-| Variable | Effect when `"true"` |
-| --- | --- |
-| `AUTO_DEPLOY_DEV` | Pushes touching `apps/**` or `shared/**` on `dev` auto-deploy `box` flavor to `safeshare-box`. |
-| `AUTO_DEPLOY_PROD` | Pushes touching `apps/**` or `shared/**` on `main` auto-deploy `box` flavor to `docworks-514722`. |
-| `AUTO_DEPLOY_ENABLED` | Enables push auto-deploy for both `dev` (`dev` branch) and `prod` (`main` branch). |
-
-Manual deploys always work on demand via **Actions -> Deploy DocWorks -> Run workflow** regardless of those flags.
-
-### 2. Recommended GitHub Environments (`Settings -> Environments`)
-
-- **`dev`**: optional reviewer rules; accepts pushes from `dev` or manual dispatch.
-- **`prod`**: add **Required reviewers** (your account) and restrict **Deployment branches** to `main` so every PROD deployment gets explicit human sign-off before authenticating to GCP.
-
-Optional per-environment Variable overrides (`WIF_PROVIDER`, `DEPLOYER_SA`, `PROJECT_ID`, `RUNTIME_SA`, `AR_REPO`, `REGION`, `FREE_SCRUB_LIMIT`, `FREE_DIFF_LIMIT`, `FREE_RADAR_FIX_LIMIT`) are honored automatically if defined.
-
-### 3. Secret Manager Readiness Before First PROD Deploy
-
-Before triggering `Deploy DocWorks` for `prod` (`box`), ensure enabled versions exist in `docworks-514722` for:
+Before deploying `prod` (`box`), ensure enabled versions exist in `docworks-514722` for:
 - `BOX_SCRUBDOC_CLIENT_ID`
 - `BOX_SCRUBDOC_CLIENT_SECRET`
 - `BOX_DIFFDOC_CLIENT_ID`

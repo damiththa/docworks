@@ -21,11 +21,12 @@ on:
           - "scrubdoc"
           - "diffdoc"
       provider:
-        description: "Cloud storage provider flavor"
+        description: "Cloud storage provider flavor(s)"
         required: true
         type: choice
-        default: "box"
+        default: "all_active"
         options:
+          - "all_active"
           - "box"
           - "dropbox"
           - "gdrive"
@@ -37,6 +38,7 @@ on:
       - "apps/**"
       - "shared/**"
       - ".github/workflows/deploy.yml"
+      - ".github/deploy-config.json"
 
 permissions:
   contents: read
@@ -47,26 +49,17 @@ concurrency:
     deploy-${{
       github.event_name == 'workflow_dispatch' && inputs.environment ||
       (github.ref_name == 'main' && 'prod' || 'dev')
-    }}-${{
-      github.event_name == 'workflow_dispatch' && inputs.provider || 'box'
     }}
   cancel-in-progress: false
 
 jobs:
   plan:
-    name: Resolve Deployment Plan
-    if: >-
-      ${{
-        github.event_name == 'workflow_dispatch' ||
-        vars.AUTO_DEPLOY_ENABLED == 'true' ||
-        (github.ref_name == 'dev' && vars.AUTO_DEPLOY_DEV == 'true') ||
-        (github.ref_name == 'main' && vars.AUTO_DEPLOY_PROD == 'true')
-      }}
+    name: Resolve Multi-Provider Deployment Plan
     runs-on: ubuntu-latest
     outputs:
+      should_deploy: ${{ steps.target.outputs.should_deploy }}
       env: ${{ steps.target.outputs.env }}
-      provider: ${{ steps.target.outputs.provider }}
-      apps_json: ${{ steps.target.outputs.apps_json }}
+      matrix: ${{ steps.target.outputs.matrix }}
       project_id: ${{ steps.target.outputs.project_id }}
       wif_provider: ${{ steps.target.outputs.wif_provider }}
       deployer_sa: ${{ steps.target.outputs.deployer_sa }}
@@ -75,7 +68,10 @@ jobs:
       region: ${{ steps.target.outputs.region }}
 
     steps:
-      - name: Compute target environment, provider, and app matrix
+      - name: Checkout repository config
+        uses: actions/checkout@v4
+
+      - name: Resolve target environment, apps, and provider matrix
         id: target
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -83,65 +79,127 @@ jobs:
           INPUT_ENV: ${{ inputs.environment }}
           INPUT_APPS: ${{ inputs.apps }}
           INPUT_PROVIDER: ${{ inputs.provider }}
+          VAR_AUTO_DEPLOY_ENABLED: ${{ vars.AUTO_DEPLOY_ENABLED }}
+          VAR_AUTO_DEPLOY_DEV: ${{ vars.AUTO_DEPLOY_DEV }}
+          VAR_AUTO_DEPLOY_PROD: ${{ vars.AUTO_DEPLOY_PROD }}
+          VAR_ACTIVE_PROVIDERS: ${{ vars.ACTIVE_PROVIDERS }}
+          VAR_ACTIVE_DEV_PROVIDERS: ${{ vars.ACTIVE_DEV_PROVIDERS }}
+          VAR_ACTIVE_PROD_PROVIDERS: ${{ vars.ACTIVE_PROD_PROVIDERS }}
         run: |
-          set -euo pipefail
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            TARGET_ENV="${INPUT_ENV}"
-            TARGET_APPS="${INPUT_APPS}"
-            TARGET_PROVIDER="${INPUT_PROVIDER}"
-          else
-            if [[ "${REF_NAME}" == "main" ]]; then
-              TARGET_ENV="prod"
-            else
-              TARGET_ENV="dev"
-            fi
-            TARGET_APPS="all"
-            TARGET_PROVIDER="box"
-          fi
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
 
-          if [[ "${TARGET_APPS}" == "all" ]]; then
-            APPS_JSON='["scrubdoc","diffdoc"]'
-          else
-            APPS_JSON="[\"${TARGET_APPS}\"]"
-          fi
+          sys.path.insert(0, ".")
+          from shared.backend.config import VALID_APPS, VALID_PROVIDERS
 
-          if [[ "${TARGET_ENV}" == "prod" ]]; then
-            PROJECT_ID="docworks-514722"
-            WIF_PROVIDER="projects/746704433311/locations/global/workloadIdentityPools/github-actions/providers/github"
-            DEPLOYER_SA="github-deployer@docworks-514722.iam.gserviceaccount.com"
-            RUNTIME_SA="docworks-prod-runner@docworks-514722.iam.gserviceaccount.com"
-            AR_REPO="docworks-apps"
-          else
-            PROJECT_ID="safeshare-box"
-            WIF_PROVIDER="projects/902354967061/locations/global/workloadIdentityPools/github-actions/providers/github"
-            DEPLOYER_SA="github-deployer@safeshare-box.iam.gserviceaccount.com"
-            RUNTIME_SA="902354967061-compute@developer.gserviceaccount.com"
-            AR_REPO="cloud-run-source-deploy"
-          fi
+          event_name = os.environ["EVENT_NAME"]
+          ref_name = os.environ["REF_NAME"]
 
-          {
-            echo "env=${TARGET_ENV}"
-            echo "provider=${TARGET_PROVIDER}"
-            echo "apps_json=${APPS_JSON}"
-            echo "project_id=${PROJECT_ID}"
-            echo "wif_provider=${WIF_PROVIDER}"
-            echo "deployer_sa=${DEPLOYER_SA}"
-            echo "runtime_sa=${RUNTIME_SA}"
-            echo "ar_repo=${AR_REPO}"
-            echo "region=us-central1"
-          } >> "${GITHUB_OUTPUT}"
+          if event_name == "workflow_dispatch":
+              target_env = os.environ["INPUT_ENV"] or "dev"
+              target_apps = os.environ["INPUT_APPS"] or "all"
+              target_provider = os.environ["INPUT_PROVIDER"] or "all_active"
+          else:
+              target_env = "prod" if ref_name == "main" else "dev"
+              target_apps = "all"
+              target_provider = "all_active"
+
+          cfg_path = Path(".github/deploy-config.json")
+          deploy_cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+          env_cfg = deploy_cfg.get(target_env, {})
+
+          def _parse_bool(val: str) -> bool | None:
+              v = val.strip().lower()
+              if not v:
+                  return None
+              return v == "true"
+
+          auto_deploy = bool(env_cfg.get("auto_deploy_on_push", False))
+          env_override = _parse_bool(
+              os.environ.get("VAR_AUTO_DEPLOY_PROD" if target_env == "prod" else "VAR_AUTO_DEPLOY_DEV", "")
+          )
+          global_override = _parse_bool(os.environ.get("VAR_AUTO_DEPLOY_ENABLED", ""))
+          if env_override is not None:
+              auto_deploy = env_override
+          elif global_override is not None:
+              auto_deploy = global_override
+
+          should_deploy = (event_name == "workflow_dispatch") or auto_deploy
+
+          apps = list(VALID_APPS) if target_apps == "all" else [target_apps]
+          for a in apps:
+              if a not in VALID_APPS:
+                  raise SystemExit(f"Unsupported app target '{a}'. Expected one of {VALID_APPS}.")
+
+          prov_override = (
+              os.environ.get("VAR_ACTIVE_PROD_PROVIDERS" if target_env == "prod" else "VAR_ACTIVE_DEV_PROVIDERS", "").strip()
+              or os.environ.get("VAR_ACTIVE_PROVIDERS", "").strip()
+          )
+          if prov_override:
+              active_providers = [p.strip().lower() for p in prov_override.split(",") if p.strip()]
+          else:
+              active_providers = [str(p).strip().lower() for p in env_cfg.get("active_providers", ["box"]) if str(p).strip()]
+
+          providers = active_providers if target_provider == "all_active" else [target_provider.strip().lower()]
+          for p in providers:
+              if p not in VALID_PROVIDERS:
+                  raise SystemExit(f"Unsupported provider target '{p}'. Expected one of {VALID_PROVIDERS}.")
+
+          include_matrix = [{"app": a, "provider": p} for p in providers for a in apps] if should_deploy else []
+          matrix_json = json.dumps({"include": include_matrix}, separators=(",", ":"))
+
+          if target_env == "prod":
+              project_id = "docworks-514722"
+              wif_provider = "projects/746704433311/locations/global/workloadIdentityPools/github-actions/providers/github"
+              deployer_sa = "github-deployer@docworks-514722.iam.gserviceaccount.com"
+              runtime_sa = "docworks-prod-runner@docworks-514722.iam.gserviceaccount.com"
+              ar_repo = "docworks-apps"
+          else:
+              project_id = "safeshare-box"
+              wif_provider = "projects/902354967061/locations/global/workloadIdentityPools/github-actions/providers/github"
+              deployer_sa = "github-deployer@safeshare-box.iam.gserviceaccount.com"
+              runtime_sa = "902354967061-compute@developer.gserviceaccount.com"
+              ar_repo = "cloud-run-source-deploy"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"should_deploy={'true' if should_deploy else 'false'}\n")
+              fh.write(f"env={target_env}\n")
+              fh.write(f"matrix={matrix_json}\n")
+              fh.write(f"project_id={project_id}\n")
+              fh.write(f"wif_provider={wif_provider}\n")
+              fh.write(f"deployer_sa={deployer_sa}\n")
+              fh.write(f"runtime_sa={runtime_sa}\n")
+              fh.write(f"ar_repo={ar_repo}\n")
+              fh.write("region=us-central1\n")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as sfh:
+                  if should_deploy:
+                      targets = ", ".join(f"{x['app']}-{x['provider']}" for x in include_matrix)
+                      sfh.write(f"**Deployment Plan (`{target_env}`):** deploying `{targets}` to `{project_id}`.\n")
+                  else:
+                      sfh.write(
+                          f"**Auto-deploy skipped for `{target_env}` (`{ref_name}`):** "
+                          f"`auto_deploy_on_push` is `false` in `.github/deploy-config.json`. "
+                          f"Trigger manually via **Run workflow** or flip `auto_deploy_on_push: true` when ready.\n"
+                      )
+          PY
 
   deploy:
-    name: Deploy ${{ matrix.app }} (${{ needs.plan.outputs.provider }} -> ${{ needs.plan.outputs.env }})
+    name: Deploy ${{ matrix.app }} (${{ matrix.provider }} -> ${{ needs.plan.outputs.env }})
     needs: plan
+    if: ${{ needs.plan.outputs.should_deploy == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: ${{ needs.plan.outputs.env }}
       url: ${{ steps.deploy_service.outputs.url }}
     strategy:
       fail-fast: false
-      matrix:
-        app: ${{ fromJson(needs.plan.outputs.apps_json) }}
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
@@ -152,7 +210,7 @@ jobs:
         env:
           ENV_NAME: ${{ needs.plan.outputs.env }}
           APP_ID: ${{ matrix.app }}
-          PROVIDER_ID: ${{ needs.plan.outputs.provider }}
+          PROVIDER_ID: ${{ matrix.provider }}
           PROJECT_ID: ${{ vars.PROJECT_ID || needs.plan.outputs.project_id }}
           RUNTIME_SA: ${{ vars.RUNTIME_SA || needs.plan.outputs.runtime_sa }}
           AR_REPO: ${{ vars.AR_REPO || needs.plan.outputs.ar_repo }}
@@ -160,6 +218,7 @@ jobs:
           VAR_FREE_SCRUB_LIMIT: ${{ vars.FREE_SCRUB_LIMIT }}
           VAR_FREE_DIFF_LIMIT: ${{ vars.FREE_DIFF_LIMIT }}
           VAR_FREE_RADAR_FIX_LIMIT: ${{ vars.FREE_RADAR_FIX_LIMIT }}
+          VAR_SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
         run: |
           set -euo pipefail
           APP_UPPER="$(echo "${APP_ID}" | tr '[:lower:]' '[:upper:]')"
@@ -196,6 +255,10 @@ jobs:
             if [[ -n "${VAR_FREE_RADAR_FIX_LIMIT}" ]]; then
               ENV_VARS="${ENV_VARS},FREE_RADAR_FIX_LIMIT=${VAR_FREE_RADAR_FIX_LIMIT}"
             fi
+          fi
+
+          if [[ -n "${VAR_SUPPORT_EMAIL}" ]]; then
+            ENV_VARS="${ENV_VARS},SUPPORT_EMAIL=${VAR_SUPPORT_EMAIL}"
           fi
 
           IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${SERVICE_NAME}"
@@ -308,7 +371,7 @@ jobs:
         env:
           ENV_NAME: ${{ needs.plan.outputs.env }}
           APP_ID: ${{ matrix.app }}
-          PROVIDER_ID: ${{ needs.plan.outputs.provider }}
+          PROVIDER_ID: ${{ matrix.provider }}
           PROJECT_ID: ${{ steps.cfg.outputs.project_id }}
           SERVICE_NAME: ${{ steps.cfg.outputs.service_name }}
           SERVICE_URL: ${{ steps.deploy_service.outputs.url }}

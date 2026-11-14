@@ -15,12 +15,13 @@ Both `shared/backend/providers.py` and `shared/providers/{dropbox,gdrive}/client
   1. Register PKCE/OAuth Redirect URI `<ORIGIN>/callback` and allowed CORS origin in Dropbox App Console.
   2. Implement `dropbox_oauth_exchange` and account ID lookup (`/2/users/get_current_account`) in `shared/backend/providers.py` (`implemented=True`).
   3. Implement `DropboxProviderClient` methods (`downloadFileBytes`, `listFolderPage`, `listFileVersions` via `/2/files/list_revisions`, `uploadNewFile`, `updateSharedLinkSettings`, `removeCollaboration`) respecting capability flags (`supports_version_history=True`, `supports_link_expiry=True`).
-  4. Provision `HMAC_PEPPER_DROPBOX`, `DROPBOX_SCRUBDOC_CLIENT_*`, `DROPBOX_DIFFDOC_CLIENT_*` in Secret Manager and deploy `scrubdoc-dropbox` / `diffdoc-dropbox` in `docworks-514722`.
+  4. Provision secrets with `./deploy/setup_gcp_prod.sh --providers box,dropbox` (creates `HMAC_PEPPER_DROPBOX`, `DROPBOX_SCRUBDOC_CLIENT_*`, `DROPBOX_DIFFDOC_CLIENT_*`), populate the Dropbox OAuth credentials, and add `"dropbox"` to `.github/deploy-config.json` (`active_providers`) so CI/CD automatically deploys `scrubdoc-dropbox` / `diffdoc-dropbox` in `docworks-514722` using isolated Firestore collection `entitlements_dropbox`.
 
 - **Google Drive (`STORAGE_PROVIDER=gdrive`):**
-  1. Register OAuth Redirect URI `<ORIGIN>/callback` and restricted Drive scopes in Google Cloud Console.
-  2. Implement `gdrive_oauth_exchange` and Drive `about.get` user ID lookup in `shared/backend/providers.py` (`implemented=True`).
-  3. Implement `GoogleDriveProviderClient` methods respecting Drive capability constraints (`supports_link_expiry=False`, `supports_download_disable=False` / permission-level `anyoneWithLink`). Note that `suite_shell.js` automatically hides unsupported ShareRadar bulk actions via `capabilities`.
+  1. Register OAuth Redirect URI `<ORIGIN>/callback` and restricted Drive scopes in Google Cloud Console (start with `drive.file` + `openid` to keep OAuth review streamlined).
+  2. Implement `gdrive_oauth_exchange` and Drive `about.get` user ID lookup in `shared/backend/providers.py` (`implemented=True`) or reuse OpenID `sub`.
+  3. Implement `GoogleDriveProviderClient` methods respecting Drive capability constraints (`supports_link_expiry=False`, `supports_link_password=False`, permission-level `anyone` with `allowFileDiscovery: false`). Note that `suite_shell.js` automatically hides unsupported ShareRadar bulk actions via `capabilities`.
+  4. Provision secrets with `./deploy/setup_gcp_prod.sh --providers box,dropbox,gdrive`, populate `GDRIVE_SCRUBDOC_CLIENT_*` / `GDRIVE_DIFFDOC_CLIENT_*`, and add `"gdrive"` to `.github/deploy-config.json` (`active_providers`).
 
 ## 3. Commercial / Pro Plan Cutover Notes
 

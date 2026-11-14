@@ -3,12 +3,37 @@ set -euo pipefail
 
 # Idempotent GCP PROD bootstrap script for project `docworks-514722`.
 # Creates APIs, Firestore Native DB, Artifact Registry repository,
-# least-privilege runtime Service Account + IAM bindings, and Secret Manager containers.
+# least-privilege runtime Service Account + IAM bindings, and per-provider
+# Secret Manager containers (`box` by default; pass `--providers box,dropbox,gdrive`).
 
 PROJECT_ID="${PROJECT_ID:-docworks-514722}"
 REGION="${REGION:-us-central1}"
 AR_REPO="${AR_REPO:-docworks-apps}"
+PROVIDERS_CSV="${PROVIDERS_CSV:-box}"
 RUNTIME_SA_NAME="docworks-prod-runner"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --project)
+      PROJECT_ID="${2:-}"
+      shift 2
+      ;;
+    --region)
+      REGION="${2:-}"
+      shift 2
+      ;;
+    --providers)
+      PROVIDERS_CSV="${2:-box}"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      echo "Usage: $0 [--project docworks-514722] [--region us-central1] [--providers box,dropbox,gdrive]" >&2
+      exit 1
+      ;;
+  esac
+done
+
 RUNTIME_SA_EMAIL="${RUNTIME_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 echo "==> Enabling required GCP APIs on ${PROJECT_ID}..."
@@ -54,17 +79,41 @@ for role in roles/datastore.user roles/secretmanager.secretAccessor; do
     --quiet >/dev/null
 done
 
-echo "==> Ensuring Secret Manager secret containers exist..."
-for secret_id in \
-  HMAC_PEPPER_BOX \
-  BOX_SCRUBDOC_CLIENT_ID \
-  BOX_SCRUBDOC_CLIENT_SECRET \
-  BOX_DIFFDOC_CLIENT_ID \
-  BOX_DIFFDOC_CLIENT_SECRET; do
-  gcloud secrets create "${secret_id}" \
+echo "==> Ensuring Secret Manager containers exist for providers: ${PROVIDERS_CSV}..."
+IFS=',' read -ra PROVIDER_LIST <<< "${PROVIDERS_CSV}"
+for raw_prov in "${PROVIDER_LIST[@]}"; do
+  prov="$(echo "${raw_prov}" | tr '[:upper:]' '[:lower:]' | tr -d ' ')"
+  if [[ -z "${prov}" ]]; then
+    continue
+  fi
+  prov_upper="$(echo "${prov}" | tr '[:lower:]' '[:upper:]')"
+  pepper_secret="HMAC_PEPPER_${prov_upper}"
+
+  for secret_id in \
+    "${pepper_secret}" \
+    "${prov_upper}_SCRUBDOC_CLIENT_ID" \
+    "${prov_upper}_SCRUBDOC_CLIENT_SECRET" \
+    "${prov_upper}_DIFFDOC_CLIENT_ID" \
+    "${prov_upper}_DIFFDOC_CLIENT_SECRET"; do
+    if ! gcloud secrets describe "${secret_id}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+      gcloud secrets create "${secret_id}" \
+        --project="${PROJECT_ID}" \
+        --replication-policy=automatic \
+        --quiet
+    fi
+  done
+
+  ver_count="$(gcloud secrets versions list "${pepper_secret}" \
     --project="${PROJECT_ID}" \
-    --replication-policy=automatic \
-    --quiet || true
+    --filter="state=ENABLED" \
+    --format="value(name)" | awk 'NF {c++} END {print c+0}')"
+  if [[ "${ver_count}" -eq 0 ]]; then
+    echo "Generating initial 32-byte random pepper version for ${pepper_secret}..."
+    openssl rand -hex 32 | tr -d '\n' | gcloud secrets versions add "${pepper_secret}" \
+      --project="${PROJECT_ID}" \
+      --data-file=- \
+      --quiet >/dev/null
+  fi
 done
 
 echo "==> Infrastructure bootstrap complete for ${PROJECT_ID}."
