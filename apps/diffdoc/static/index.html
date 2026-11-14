@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiffDoc — DocWorks Suite</title>
+  <link rel="stylesheet" href="/static/shared/css/suite-shell.css?v=11" />
+  <link rel="stylesheet" href="/static/app/css/styles.css?v=11" />
+  <script defer src="/static/vendor/pdf-lib.min.js?v=11"></script>
+  <script defer src="/static/vendor/pdf.min.js?v=11"></script>
+  <script defer src="/static/vendor/jszip.min.js?v=11"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-row">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="12" y1="12" x2="12" y2="18"></line>
+          <line x1="9" y1="15" x2="15" y2="15"></line>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title-line">
+          <span class="brand-name">DiffDoc</span>
+          <span class="suite-pill">DocWorks</span>
+          <span class="privacy-pill" id="header-privacy-pill" title="100% In-Browser: Files are streamed directly between cloud storage and your browser RAM. Zero file bytes are ever stored, cached, or analyzed on external servers.">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            100% In-Browser &middot; Zero-PII
+          </span>
+        </div>
+        <div class="brand-sub" id="active-context-label">Version history &amp; sibling file redlines</div>
+      </div>
+    </div>
+
+    <nav id="main-tabs" class="nav-tabs" aria-label="Workspace navigation">
+      <button id="btn-tab-compare" type="button" class="tab-btn active">Compare &amp; Redline</button>
+      <button id="btn-tab-radar" type="button" class="tab-btn">ShareRadar <span class="tab-badge-pro">Pro</span></button>
+      <button id="btn-tab-picker" type="button" class="tab-btn" title="Browse the remaining files and folders in the folder you opened from">Other Files in Folder</button>
+    </nav>
+
+    <div class="header-actions">
+      <span id="quota-badge" class="quota-pill hidden">Free Plan</span>
+      <span id="userBadge" class="pill-user hidden">Box Connected</span>
+      <button id="btn-done-window" type="button" class="btn btn-secondary hidden">Done</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="toast-banner" class="toast hidden" role="status"></div>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 0: STANDALONE OAUTH CONNECT SCREEN                         -->
+    <!-- ================================================================= -->
+    <section id="screen-connect" class="welcome-card">
+      <div class="welcome-icon" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="12" y1="3" x2="12" y2="21"></line>
+          <path d="M8 8h1M8 12h1M15 12h1M15 16h1"></path>
+        </svg>
+      </div>
+      <div class="hero-badge">Zero-PII Architecture &middot; Runs 100% in Browser RAM</div>
+      <h1 id="connect-heading">Compare <span data-provider-name>Box</span> files with confidence</h1>
+      <p class="welcome-lead" id="connect-subtext">
+        Compare <strong>Version History (<code>v1..vN</code>)</strong> or <strong>any two sibling files</strong> across
+        PDF, Word (<code>.docx</code>), Excel (<code>.xlsx</code> / <code>.csv</code>), text, and images&mdash;100% inside your browser RAM with zero file bytes sent to external servers.
+      </p>
+      <div class="feature-grid">
+        <div class="feature-tile">
+          <h3>Contract &amp; Text Redline</h3>
+          <p>Word-level additions &amp; deletions plus automatic callouts for $ Amounts, % Rates, Dates, and Legal Clauses&mdash;even across <code>.docx</code> vs <code>.pdf</code>.</p>
+        </div>
+        <div class="feature-tile">
+          <h3>Visual Curtain &amp; Pixel Diff</h3>
+          <p>Interactive split-screen curtain slider and crimson pixel-delta overlay for scanned PDFs, signatures, and engineering drawings.</p>
+        </div>
+        <div class="feature-tile">
+          <h3>Excel Audit &amp; ShareRadar</h3>
+          <p>Spot altered <code>.xlsx</code> formulas and hardcoded overrides, plus audit public links &amp; outside guests with ShareRadar Hygiene.</p>
+        </div>
+      </div>
+      <div class="trust-guarantee-card">
+        <div class="trust-item">
+          <span class="trust-icon" aria-hidden="true">🔒</span>
+          <div>
+            <strong>100% In-Browser RAM</strong>
+            <p>Files flow directly between <span data-provider-name>Box</span> and your browser memory via WebAssembly. Zero file bytes ever touch or sit on our servers.</p>
+          </div>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon" aria-hidden="true">🚫</span>
+          <div>
+            <strong>Zero Server Storage</strong>
+            <p>We never download, cache, log, or store your documents, filenames, version history, or text deltas.</p>
+          </div>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon" aria-hidden="true">🛡️</span>
+          <div>
+            <strong>Enterprise Governance Intact</strong>
+            <p>Your enterprise permissions, security classifications, and folder audit logs remain 100% intact.</p>
+          </div>
+        </div>
+      </div>
+      <div class="welcome-actions">
+        <button id="btn-oauth-connect" type="button" class="btn btn-primary btn-lg">Continue with Box</button>
+      </div>
+      <div class="welcome-footer">
+        Runs privately in your browser &middot; <a href="/privacy" target="_blank" rel="noopener">Privacy</a> &middot; <a href="/terms" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 1: MAIN COMPARISON WORKSPACE                               -->
+    <!-- ================================================================= -->
+    <section id="screen-compare" class="workspace-section hidden">
+      <div class="privacy-notice-strip">
+        <span class="shield-dot" aria-hidden="true"></span>
+        <span><strong>Zero-PII Active:</strong> Files are read and compared entirely within your browser RAM over direct HTTPS. Zero file bytes leave your machine or touch external servers.</span>
+      </div>
+
+      <div class="source-selector-card">
+        <div class="selector-col selector-left">
+          <label for="leftSelect" class="selector-label">
+            <span class="dot dot-left"></span> Baseline (Left &mdash; Prior Version or Reference File)
+          </label>
+          <select id="leftSelect" class="source-select"></select>
+          <div id="leftMetaInfo" class="selector-meta">Select baseline version or file</div>
+        </div>
+
+        <div class="selector-swap">
+          <button id="btnSwapSides" type="button" class="btn-icon" title="Swap Baseline and Target">
+            &#8646;
+          </button>
+        </div>
+
+        <div class="selector-col selector-right">
+          <label for="rightSelect" class="selector-label">
+            <span class="dot dot-right"></span> Target (Right &mdash; Current Version or Revised File)
+          </label>
+          <select id="rightSelect" class="source-select"></select>
+          <div id="rightMetaInfo" class="selector-meta">Select target version or file</div>
+        </div>
+
+        <div class="selector-actions">
+          <button id="btnRunDiff" type="button" class="btn btn-primary">Run Comparison</button>
+          <div class="export-row">
+            <button id="btnExportBoxPdf" type="button" class="btn btn-secondary btn-sm" disabled>
+              Save Report to Box
+            </button>
+            <button id="btnDownloadLocalPdf" type="button" class="btn btn-ghost btn-sm" disabled>
+              Download PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="exportSuccessStrip" class="export-strip hidden">
+        <span id="exportSuccessText">Saved Redline_Report.pdf!</span>
+        <button id="btnCopyReportLink" type="button" class="btn btn-ghost btn-sm">
+          Create &amp; Copy Shared Link
+        </button>
+      </div>
+
+      <div id="identicalNotice" class="identical-banner hidden">
+        <strong>Cryptographic Match (Identical SHA-1):</strong> Baseline and Target contain identical raw bytes.
+      </div>
+
+      <div id="emptyPromptCard" class="empty-prompt-card hidden">
+        <h3 id="emptyPromptTitle">Ready to Compare</h3>
+        <p id="emptyPromptBody">
+          Choose your <strong>Baseline (Left)</strong> and <strong>Target (Right)</strong> versions or sibling files above, then click <strong>Run Comparison</strong>.
+        </p>
+      </div>
+
+      <!-- Diff Mode Switcher + KPI Strip -->
+      <div id="diffToolbar" class="diff-toolbar hidden">
+        <div class="mode-pills" role="tablist">
+          <button id="modeBtnText" type="button" class="mode-pill active">Text &amp; Clause Redline</button>
+          <button id="modeBtnVisual" type="button" class="mode-pill">Visual Curtain &amp; Pixel Diff</button>
+          <button id="modeBtnSheet" type="button" class="mode-pill">Spreadsheet &amp; Formula Audit</button>
+        </div>
+        <div id="kpiSummaryStrip" class="kpi-strip"></div>
+      </div>
+
+      <!-- PANE 1: Text & Clause Redline -->
+      <div id="paneTextDiff" class="diff-pane hidden">
+        <div id="scannedPdfHint" class="hint-banner hidden">
+          No selectable text layer was found on one or more PDF pages. Switch to <strong>Visual Curtain &amp; Pixel Diff</strong> above to inspect scanned signatures, stamps, or image changes.
+        </div>
+
+        <div id="smartHighlightsBox" class="highlights-card hidden">
+          <div class="highlights-header">
+            <strong>Smart Financial, Rate, Date &amp; Legal Clause Highlights</strong>
+            <span id="highlightsCountBadge" class="pill-warn">0 key shifts</span>
+          </div>
+          <div id="smartHighlightsList" class="highlights-grid"></div>
+        </div>
+
+        <div class="subtoolbar">
+          <div class="btn-group">
+            <button id="btnTextUnified" type="button" class="sub-btn active">Unified Redline</button>
+            <button id="btnTextSplit" type="button" class="sub-btn">Side-by-Side</button>
+          </div>
+          <label class="checkbox-inline">
+            <input type="checkbox" id="chkChangesOnly" checked />
+            <span>Show changed sections only (&plusmn;3 context lines)</span>
+          </label>
+        </div>
+
+        <div id="textDiffContainer" class="redline-viewport"></div>
+      </div>
+
+      <!-- PANE 2: Visual Curtain & Pixel Diff -->
+      <div id="paneVisualDiff" class="diff-pane hidden">
+        <div class="subtoolbar visual-subtoolbar">
+          <div class="btn-group">
+            <button id="visModeCurtain" type="button" class="sub-btn active">Split Curtain Slider</button>
+            <button id="visModePixel" type="button" class="sub-btn">Crimson Pixel Delta</button>
+            <button id="visModeSide" type="button" class="sub-btn">Side-by-Side</button>
+          </div>
+
+          <div class="page-nav-group">
+            <button id="btnPrevPage" type="button" class="btn btn-ghost btn-sm">&larr; Prev</button>
+            <span id="pageIndicator" class="page-indicator">Page 1 / 1</span>
+            <button id="btnNextPage" type="button" class="btn btn-ghost btn-sm">Next &rarr;</button>
+          </div>
+
+          <div class="sensitivity-group">
+            <label for="pixelThresholdRange">Threshold:</label>
+            <input id="pixelThresholdRange" type="range" min="8" max="64" value="24" />
+            <span id="pixelThresholdLabel" class="mono-sm">24</span>
+          </div>
+
+          <span id="visualPageDeltaBadge" class="pill-delta">0.00% pixels changed</span>
+        </div>
+
+        <div id="pageDeltaStrip" class="page-delta-strip hidden"></div>
+
+        <div id="visualStage" class="visual-stage">
+          <!-- Mode 1: Interactive Split Curtain -->
+          <div id="curtainStage" class="curtain-wrapper">
+            <div class="curtain-slider-bar">
+              <span class="tag-left">Baseline (Left)</span>
+              <input id="curtainSlider" type="range" min="0" max="100" value="50" aria-label="Curtain split position" />
+              <span class="tag-right">Target (Right)</span>
+            </div>
+            <div id="curtainViewport" class="curtain-viewport">
+              <canvas id="curtainRightCanvas" class="vis-canvas"></canvas>
+              <div id="curtainLeftClip" class="curtain-left-clip">
+                <canvas id="curtainLeftCanvas" class="vis-canvas"></canvas>
+              </div>
+              <div id="curtainDivider" class="curtain-divider">
+                <div class="curtain-knob">&harr;</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mode 2: Crimson Pixel Overlay -->
+          <div id="pixelStage" class="pixel-wrapper hidden">
+            <canvas id="pixelDiffCanvas" class="vis-canvas"></canvas>
+          </div>
+
+          <!-- Mode 3: Side-by-Side -->
+          <div id="sideStage" class="side-wrapper hidden">
+            <div class="side-card">
+              <div class="side-caption tag-left">Baseline (Left)</div>
+              <canvas id="sideLeftCanvas" class="vis-canvas"></canvas>
+            </div>
+            <div class="side-card">
+              <div class="side-caption tag-right">Target (Right)</div>
+              <canvas id="sideRightCanvas" class="vis-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANE 3: Spreadsheet Multi-Sheet Cell & Formula Audit -->
+      <div id="paneSheetDiff" class="diff-pane hidden">
+        <div id="formulaOverrideAlert" class="override-alert hidden"></div>
+
+        <div id="sheetTabsBar" class="sheet-tabs-bar"></div>
+
+        <div class="subtoolbar">
+          <div class="btn-group">
+            <button id="sheetFilterAll" type="button" class="sub-btn active">All Changes</button>
+            <button id="sheetFilterFormulas" type="button" class="sub-btn">Formula Edits</button>
+            <button id="sheetFilterOverrides" type="button" class="sub-btn">Hardcoded Overrides</button>
+            <button id="sheetFilterValues" type="button" class="sub-btn">Value Changes</button>
+          </div>
+          <input
+            id="sheetSearchInput"
+            type="search"
+            class="search-input"
+            placeholder="Filter cell (e.g. B14, SUM, Revenue)..."
+          />
+        </div>
+
+        <div class="table-scroll">
+          <table class="sheet-diff-table">
+            <thead>
+              <tr>
+                <th>Cell</th>
+                <th>Change Type</th>
+                <th>Baseline (Left)</th>
+                <th>Target (Right)</th>
+                <th>Numeric &Delta;</th>
+              </tr>
+            </thead>
+            <tbody id="sheetDiffTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 2 & 3: INJECTED FROM SHARED SUITE TEMPLATE                 -->
+    <!-- ================================================================= -->
+    <section id="screen-radar" class="hidden"></section>
+    <section id="screen-picker" class="picker-card hidden"></section>
+  </main>
+
+  <footer class="app-footer"></footer>
+
+  <script type="module" src="/static/app/js/app.js?v=11"></script>
+</body>
+</html>

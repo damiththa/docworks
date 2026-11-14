@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScrubDoc — DocWorks Suite</title>
+  <link rel="stylesheet" href="/static/shared/css/suite-shell.css?v=11" />
+  <link rel="stylesheet" href="/static/app/css/styles.css?v=11" />
+  <script defer src="/static/vendor/pdf-lib.min.js?v=11"></script>
+  <script defer src="/static/vendor/pdf.min.js?v=11"></script>
+  <script defer src="/static/vendor/exifr.full.umd.js?v=11"></script>
+  <script defer src="/static/vendor/jszip.min.js?v=11"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-row">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2.75L4.75 5.75V11.5C4.75 16.25 7.84 20.58 12 21.75C16.16 20.58 19.25 16.25 19.25 11.5V5.75L12 2.75Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M8.75 12.25L11 14.5L15.5 9.75" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title-line">
+          <span class="brand-name">ScrubDoc</span>
+          <span class="suite-pill">DocWorks</span>
+          <span class="privacy-pill" id="header-privacy-pill" title="100% In-Browser: Files are streamed directly between cloud storage and your browser RAM. Zero file bytes are ever stored, cached, or analyzed on external servers.">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            100% In-Browser &middot; Zero-PII
+          </span>
+        </div>
+        <div class="brand-sub" id="active-context-label">Clean &amp; redact files safely in your browser</div>
+      </div>
+    </div>
+
+    <nav class="nav-tabs" id="main-tabs" aria-label="Workspace navigation">
+      <button class="tab-btn active" id="btn-tab-scrub" type="button">Clean &amp; Redact</button>
+      <button class="tab-btn" id="btn-tab-radar" type="button">ShareRadar <span class="tab-badge-pro">Pro</span></button>
+      <button class="tab-btn" id="btn-tab-picker" type="button" title="Browse the remaining files and folders in the folder you opened from">Other Files in Folder</button>
+    </nav>
+
+    <div class="header-actions">
+      <span class="quota-pill hidden" id="quota-badge">Free Plan</span>
+      <span id="userBadge" class="pill-user hidden">Box Connected</span>
+      <button class="btn btn-secondary hidden" id="btn-done-window" type="button">Done</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="toast-banner" class="toast hidden" role="status"></div>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 0: WELCOME / STANDALONE SIGN-IN                            -->
+    <!-- ================================================================= -->
+    <section id="screen-connect" class="welcome-card">
+      <div class="welcome-icon" aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2.75L4.75 5.75V11.5C4.75 16.25 7.84 20.58 12 21.75C16.16 20.58 19.25 16.25 19.25 11.5V5.75L12 2.75Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M8.75 12.25L11 14.5L15.5 9.75" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="hero-badge">Zero-PII Architecture &middot; Runs 100% in Browser RAM</div>
+      <h1 id="connect-heading">Share <span data-provider-name>Box</span> files with confidence</h1>
+      <p class="welcome-lead" id="connect-subtext">
+        Automatically remove hidden personal details (like GPS location and author names), black out sensitive info in seconds, and audit who has access to your shared folders.
+      </p>
+      <div class="feature-grid">
+        <div class="feature-tile">
+          <h3>Metadata X-Ray &amp; Scrub</h3>
+          <p>Strip hidden EXIF GPS coordinates, author histories, and comments from PDF, DOCX, JPEG, and PNG files.</p>
+        </div>
+        <div class="feature-tile">
+          <h3>PII/PHI Burn-In Redaction</h3>
+          <p>Detect SSNs, cards, MRNs, and emails with local Wasm OCR and burn permanent blackouts into pixels or XML.</p>
+        </div>
+        <div class="feature-tile">
+          <h3>ShareRadar Hygiene</h3>
+          <p>Spot open public links, download velocity deltas, and outside guests across folders with 1-click fixes.</p>
+        </div>
+      </div>
+      <div class="trust-guarantee-card">
+        <div class="trust-item">
+          <span class="trust-icon" aria-hidden="true">🔒</span>
+          <div>
+            <strong>100% In-Browser RAM</strong>
+            <p>Files flow directly between <span data-provider-name>Box</span> and your browser memory via WebAssembly. Zero file bytes ever touch or sit on our servers.</p>
+          </div>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon" aria-hidden="true">🚫</span>
+          <div>
+            <strong>Zero Server Storage</strong>
+            <p>We never download, cache, log, or store your documents, personal details, or unredacted copies.</p>
+          </div>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon" aria-hidden="true">🛡️</span>
+          <div>
+            <strong>Enterprise Governance Intact</strong>
+            <p>Your enterprise permissions, security classifications, and folder audit logs remain 100% intact.</p>
+          </div>
+        </div>
+      </div>
+      <div class="welcome-actions">
+        <button class="btn btn-primary btn-lg" id="btn-oauth-connect" type="button">Continue with Box</button>
+      </div>
+      <div class="welcome-footer">
+        Runs privately in your browser &middot; <a href="/privacy" target="_blank" rel="noopener">Privacy</a> &middot; <a href="/terms" target="_blank" rel="noopener">Terms</a>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 1: CLEAN & REDACT FILE                                     -->
+    <!-- ================================================================= -->
+    <section id="screen-scrub" class="hidden">
+      <div id="scrub-empty-prompt" class="welcome-card">
+        <h2>Choose a file from <span data-provider-name>Box</span></h2>
+        <p class="welcome-lead">Pick a PDF, image, or Word document to clean hidden details or black out sensitive text.</p>
+        <button class="btn btn-primary" id="btn-open-picker-from-scrub" type="button">Browse Files in Folder</button>
+      </div>
+
+      <div class="privacy-notice-strip">
+        <span class="shield-dot" aria-hidden="true"></span>
+        <span><strong>Zero-PII Active:</strong> All metadata scrubbing and PII/PHI redaction execute entirely inside your browser RAM. Zero file bytes leave your device.</span>
+      </div>
+
+      <div id="scrub-workspace" class="scrub-layout hidden">
+        <!-- Main Document Preview Stage -->
+        <div class="preview-card">
+          <div class="preview-header">
+            <div class="file-title-group">
+              <span class="file-name" id="scrub-file-label">Document</span>
+              <span class="draw-tip" id="draw-helper-tip">Click highlighted items or drag anywhere to black out</span>
+            </div>
+
+            <div class="preview-controls">
+              <div class="draw-actions hidden" id="manual-box-controls">
+                <button class="btn btn-ghost btn-sm" id="btn-undo-box" type="button">Undo</button>
+                <button class="btn btn-ghost btn-sm" id="btn-clear-boxes" type="button">Clear drawn</button>
+              </div>
+              <div class="page-stepper hidden" id="page-stepper">
+                <button class="stepper-btn" id="btn-prev-page" type="button" aria-label="Previous page">&lsaquo;</button>
+                <span id="page-indicator" class="stepper-label">1 / 1</span>
+                <button class="stepper-btn" id="btn-next-page" type="button" aria-label="Next page">&rsaquo;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="canvas-stage" id="canvas-stage">
+            <div class="canvas-wrapper" id="canvas-wrapper">
+              <canvas id="redactor-canvas"></canvas>
+            </div>
+
+            <!-- Friendly Word (.docx) Card instead of raw blank canvas -->
+            <div id="docx-friendly-card" class="docx-card hidden">
+              <div class="docx-icon" aria-hidden="true">DOCX</div>
+              <h3>Ready to clean &amp; redact Word document</h3>
+              <p>
+                ScrubDoc automatically removes hidden author names, company properties, and reviewer comments&mdash;and replaces any PII or PHI items you select on the right with permanent solid blocks (<code>&#9608;&#9608;&#9608;&#9608;</code>) while keeping your Word formatting intact.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guided Right Sidebar -->
+        <aside class="inspector-column">
+          <!-- Step 1: File Header Properties -->
+          <div class="side-card">
+            <div class="step-row">
+              <span class="check-circle is-neutral" id="xray-badge-icon" aria-hidden="true">&bull;</span>
+              <div>
+                <div class="side-title" id="xray-title">File properties</div>
+                <div class="side-sub" id="xray-summary">Checking file header...</div>
+              </div>
+            </div>
+            <details class="quiet-details hidden" id="xray-details-wrap">
+              <summary id="xray-details-summary">Show hidden properties</summary>
+              <ul class="detail-list" id="xray-list"></ul>
+            </details>
+          </div>
+
+          <!-- Step 2: Pre-Identified Sensitive PII & PHI -->
+          <div class="side-card" id="pii-section-card">
+            <div class="side-header-between">
+              <span class="side-title">Detected PII &amp; PHI</span>
+              <span class="soft-pill" id="pii-count-badge">None found</span>
+            </div>
+
+            <div class="ocr-status-row hidden" id="ocr-progress-row">
+              <span class="ocr-pulse-dot" aria-hidden="true"></span>
+              <span id="ocr-progress-text">Scanning image text for PII &amp; PHI...</span>
+            </div>
+
+            <div class="pii-bulk-bar hidden" id="pii-bulk-bar">
+              <button class="btn btn-primary btn-sm pii-bulk-main" id="btn-blackout-all" type="button">
+                Black Out All
+              </button>
+              <button class="btn btn-ghost btn-sm" id="btn-unselect-all" type="button">
+                Reset
+              </button>
+            </div>
+
+            <div class="pii-cat-pills hidden" id="pii-category-pills">
+              <button class="cat-pill active" data-cat="all" type="button">All</button>
+              <button class="cat-pill" data-cat="phi" type="button">PHI / Medical</button>
+              <button class="cat-pill" data-cat="pii" type="button">Personal</button>
+              <button class="cat-pill" data-cat="financial" type="button">Financial</button>
+            </div>
+
+            <div class="pii-list" id="pii-checklist"></div>
+          </div>
+
+          <!-- Step 3: Save Back to Cloud Storage -->
+          <div class="side-card save-card">
+            <div class="save-mode-toggle" role="radiogroup" aria-label="How to save file">
+              <button class="save-mode-btn active" id="btn-mode-new-copy" data-mode="new_copy" type="button">
+                Save as new copy
+              </button>
+              <button class="save-mode-btn" id="btn-mode-overwrite" data-mode="overwrite" type="button">
+                Replace original
+              </button>
+            </div>
+
+            <div id="filename-field-wrap">
+              <label class="field-label" for="inp-output-stem">New file name</label>
+              <div class="filename-group">
+                <input type="text" id="inp-output-stem" class="filename-input" placeholder="Document_Clean" />
+                <span id="lbl-output-ext" class="filename-ext">.pdf</span>
+              </div>
+
+              <button class="name-suggestion hidden" id="btn-anonymize-name" type="button">
+                File name has personal info &mdash; click for generic name
+              </button>
+            </div>
+
+            <div class="cta-stack">
+              <button class="btn btn-primary btn-block" id="btn-save-only" type="button">
+                Save New Copy to Box
+              </button>
+              <button class="btn btn-secondary btn-block" id="btn-save-and-link" type="button">
+                Save Copy &amp; Copy Link
+              </button>
+            </div>
+
+            <p class="reassure-note" id="save-mode-note">
+              Saves a new clean file. Original stays untouched.
+            </p>
+
+            <!-- Inline Error / Quota Feedback right next to the Save button -->
+            <div id="save-error-box" class="error-box hidden" role="alert"></div>
+
+            <!-- Inline Confirmation after Save -->
+            <div id="save-success-box" class="success-box hidden">
+              <div class="success-title" id="save-success-title">Saved to Box!</div>
+              <p class="success-sub hidden" id="save-success-sub"></p>
+              <div class="success-actions">
+                <button class="btn btn-secondary btn-sm" id="btn-open-saved-file" type="button">View Saved File</button>
+                <button class="btn btn-secondary btn-sm hidden" id="btn-copy-saved-link" type="button">Copy Link</button>
+                <button class="btn btn-primary btn-sm" id="btn-done-after-save" type="button">Done</button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 2 & 3: INJECTED FROM SHARED SUITE TEMPLATE                 -->
+    <!-- ================================================================= -->
+    <section id="screen-radar" class="hidden"></section>
+    <section id="screen-picker" class="picker-card hidden"></section>
+  </main>
+
+  <footer class="app-footer"></footer>
+
+  <script type="module" src="/static/app/js/app.js?v=11"></script>
+</body>
+</html>

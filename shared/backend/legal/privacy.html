@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — {{APP_NAME}}</title>
+  <link rel="stylesheet" href="/static/shared/css/suite-shell.css?v=11" />
+  <link rel="stylesheet" href="/static/app/css/styles.css?v=11" />
+</head>
+<body class="legal-body">
+  <main class="legal-card">
+    <div class="badge badge-safe">DocWorks &middot; Zero-PII Architecture</div>
+    <h1>Privacy Policy — {{APP_NAME}}</h1>
+    <p class="muted">Effective Date: November 2026</p>
+
+    <h2>1. Core Privacy Guarantee: Your Files Never Touch Our Servers</h2>
+    <p>
+      <strong>{{APP_NAME}}</strong> (part of the <strong>DocWorks</strong> suite) is engineered around a strict
+      client-side, zero-retention architecture. When you process files or inspect sharing permissions in
+      <strong>{{PROVIDER_NAME}}</strong>, all file reading, WebAssembly processing, inspection, comparison,
+      redaction rendering, and folder metadata auditing execute <strong>exclusively inside your web browser memory</strong>
+      over direct HTTPS connections with {{PROVIDER_NAME}}'s official APIs (<code>{{PROVIDER_API_HOSTS}}</code>).
+    </p>
+
+    <h2>2. Information We Do NOT Collect or Store</h2>
+    <ul>
+      <li>We <strong>never</strong> download, proxy, log, or store your {{PROVIDER_NAME}} file contents, diffs, or redaction previews on our servers.</li>
+      <li>We <strong>never</strong> store your name, email address, filenames, folder paths, or shared link URLs.</li>
+      <li>We <strong>never</strong> persist {{PROVIDER_NAME}} OAuth 2.0 access tokens or refresh tokens in any database; your short-lived session token lives exclusively in volatile browser memory until you close the window.</li>
+    </ul>
+
+    <h2>3. Anonymous Quota &amp; Subscription Accounting</h2>
+    <p>
+      To enforce monthly Free and Pro usage limits without storing personal data, our stateless Google Cloud Run
+      service computes a one-way cryptographic hash (<code>HMAC-SHA256</code>) of your opaque {{PROVIDER_NAME}} account
+      identifier and stores only that irreversible hash alongside integer usage counters and plan entitlements
+      (<code>free</code> or <code>pro</code>) in Google Cloud Firestore.
+    </p>
+
+    <h2>4. User-Owned Snapshots &amp; Outputs</h2>
+    <p>
+      {{USER_OUTPUTS_DESC}} <strong>your own {{PROVIDER_NAME}} account</strong>
+      under your organization's governance and access controls.
+    </p>
+
+    {{CONTACT_BLOCK}}
+  </main>
+</body>
+</html>

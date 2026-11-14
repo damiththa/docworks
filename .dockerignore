@@ -1,0 +1,13 @@
+.git
+.github/
+.gitignore
+.env
+.env.*
+__pycache__/
+*.pyc
+.DS_Store
+README.md
+docs/
+samples/
+deploy/
+apps/*/marketplace/

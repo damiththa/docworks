@@ -1,0 +1,19 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-f"
+      - "apps/${_APP_ID}/Dockerfile"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_APP_ID}-${_PROVIDER_ID}:${_TAG}"
+      - "."
+
+images:
+  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_APP_ID}-${_PROVIDER_ID}:${_TAG}"
+
+substitutions:
+  _APP_ID: "scrubdoc"
+  _PROVIDER_ID: "box"
+  _REGION: "us-central1"
+  _AR_REPO: "docworks-apps"
+  _TAG: "latest"

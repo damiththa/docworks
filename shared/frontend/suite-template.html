@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocWorks — Standalone App Template</title>
+  <link rel="stylesheet" href="/static/shared/css/suite-shell.css?v=11" />
+</head>
+<body
+  data-suite-auto-mount="true"
+  data-suite-name="DocWorks"
+  data-app-name="DocWorks App Template"
+  data-app-subtitle="Reusable Zero-PII DocWorks Workspace Shell"
+  data-provider-name="Box"
+  data-primary-tab="workspace"
+  data-primary-tab-label="Primary Workspace"
+  data-picker-subtitle="Browse the remaining files and folders in the folder you opened from."
+  data-demo-mode="true"
+  data-demo-quota-text="Template Preview"
+>
+  <header class="topbar"></header>
+
+  <main class="container">
+    <div id="toast-banner" class="toast hidden" role="status"></div>
+
+    <section id="screen-connect" class="welcome-card hidden">
+      <div class="hero-badge">Zero-PII Architecture &middot; Runs 100% in Browser RAM</div>
+      <h1 id="connect-heading">Connect to your storage</h1>
+      <p class="welcome-lead" id="connect-subtext">Sign in with OAuth 2.0 to launch this DocWorks tool.</p>
+      <div class="welcome-actions">
+        <button class="btn btn-primary btn-lg" id="btn-oauth-connect" type="button">Continue with Storage</button>
+      </div>
+    </section>
+
+    <section id="screen-workspace">
+      <div class="privacy-notice-strip">
+        <span class="shield-dot" aria-hidden="true"></span>
+        <span><strong>Template Shell Ready:</strong> Top navigation (including <strong>ShareRadar Pro</strong> &amp; <strong>Other Files in Folder</strong>), KPI tables, and Zero-PII footer are auto-mounted from <code>/static/shared/js/suite_shell.js</code> &amp; <code>suite-shell.css</code>.</span>
+      </div>
+
+      <div class="welcome-card">
+        <div class="hero-badge">Reusable Multi-Provider DocWorks Foundation</div>
+        <h1>Build a new DocWorks app</h1>
+        <p class="welcome-lead">
+          Only your primary tool section (<code>#screen-&lt;primaryTab&gt;</code>) is app-specific. The header, always-visible <strong>ShareRadar Pro</strong> tab, <strong>Other Files in Folder</strong> browser, toast banner, and Zero-PII footer are inherited directly from the shared template across Box, Dropbox, and Google Drive deployments.
+        </p>
+
+        <div class="feature-grid">
+          <div class="feature-tile">
+            <h3>1. Inherit Shell Chrome</h3>
+            <p>Provide empty <code>header.topbar</code>, <code>#screen-radar</code>, <code>#screen-picker</code>, and <code>footer.app-footer</code> elements and call <code>mountSuiteTemplate(...)</code>.</p>
+          </div>
+          <div class="feature-tile">
+            <h3>2. Always-On ShareRadar</h3>
+            <p><code>#main-tabs</code> stays visible across welcome, file launch, folder launch, and workspace screens so ShareRadar Pro is always 1 click away.</p>
+          </div>
+          <div class="feature-tile">
+            <h3>3. Multi-Provider Client Core</h3>
+            <p>Instantiate <code>createProviderClient()</code> from <code>/static/providers/registry.js</code> alongside <code>shareradar_engine.js</code> with zero server file storage.</p>
+          </div>
+        </div>
+
+        <div class="welcome-actions">
+          <button class="btn btn-primary" id="btn-template-open-radar" type="button">Preview ShareRadar Pro</button>
+          <button class="btn btn-secondary" id="btn-template-open-picker" type="button">Preview Other Files in Folder</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-radar" class="hidden"></section>
+    <section id="screen-picker" class="picker-card hidden"></section>
+  </main>
+
+  <footer class="app-footer"></footer>
+
+  <script type="module" src="/static/shared/js/suite_shell.js?v=11"></script>
+</body>
+</html>
