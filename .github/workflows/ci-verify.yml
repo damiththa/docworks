@@ -1,0 +1,59 @@
+name: CI Static Checks
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    name: Validate Structure, Scripts & Python Bytecode
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Python syntax (compileall)
+        run: python3 -m compileall -q shared apps
+
+      - name: Validate shell deploy scripts syntax
+        run: |
+          bash -n deploy/setup_gcp_prod.sh
+          bash -n deploy/setup_gcp_wif.sh
+          bash -n deploy/deploy_app.sh
+
+      - name: Verify zero stale asset versions or legacy path references
+        run: |
+          set -e
+          if grep -rnE --exclude-dir=.git --exclude-dir=studies --exclude-dir=.github \
+            "box everyday|box_client|v=10|/static/js|/static/css|/static/suite|/app/static/vendor" .; then
+            echo "ERROR: Found stale legacy asset/version reference above."
+            exit 1
+          fi
+
+      - name: Verify required entrypoints, workflows, and Dockerfiles exist
+        run: |
+          test -f apps/scrubdoc/main.py
+          test -f apps/scrubdoc/Dockerfile
+          test -f apps/diffdoc/main.py
+          test -f apps/diffdoc/Dockerfile
+          test -f shared/backend/app_factory.py
+          test -f shared/providers/registry.js
+          test -f shared/frontend/suite-template.html
+          test -f deploy/cloudbuild.yaml
+          test -f deploy/setup_gcp_wif.sh
+          test -f .github/workflows/deploy.yml

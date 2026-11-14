@@ -26,15 +26,16 @@ docworks/
 ├── apps/
 │   ├── scrubdoc/         # ScrubDoc service entrypoint, Dockerfile, static workspace & marketplace copy
 │   └── diffdoc/          # DiffDoc service entrypoint, Dockerfile, comparison workspace & marketplace copy
-├── deploy/               # Cloud Build & guarded Cloud Run PROD scripts + GCP bootstrap script
-├── docs/                 # Architecture specs, roadmaps, and historical engineering studies
+├── deploy/               # Cloud Build, keyless WIF setup, & guarded Cloud Run PROD scripts
+├── docs/                 # Architecture specs, GitHub Actions CI/CD guide, roadmaps, and studies
 └── samples/              # Reference test files
 ```
 
-## Branching & Environment Workflow
+## Branching, CI/CD & Environment Workflow
 
-- **`dev` branch -> DEV GCP (`safeshare-box`):** Development/staging experiments are validated in Cloud Run on the DEV project before promotion. Note: no local code tests are run; build/health verification happens via Cloud Build & remote `/health` checks.
-- **`main` branch -> PROD GCP (`docworks-514722` / Project `#746704433311`):** Single GCP project hosting both `scrubdoc-<provider>` and `diffdoc-<provider>` on Cloud Run (`us-central1`) sharing unified Firestore `entitlements_{provider}` documents and least-privilege runtime Service Account `docworks-prod-runner@docworks-514722.iam.gserviceaccount.com`.
+- **GitHub Actions CI/CD (Keyless OIDC / WIF):** See [docs/GITHUB_ACTIONS.md](docs/GITHUB_ACTIONS.md) and workflows under `.github/workflows/` (`ci-verify.yml` for static verification, `deploy.yml` for gated DEV/PROD Cloud Run deployments provisioned via `deploy/setup_gcp_wif.sh`).
+- **`dev` branch -> DEV GCP (`safeshare-box` / `#902354967061`):** Preserves existing DEV service names (`safeshare` and `boxdiff`) and URLs so DEV Box Developer Console credentials stay valid during iteration. Note: zero local code tests are run; verification happens via GitHub Actions, Cloud Run builds, and remote `/health` checks.
+- **`main` branch -> PROD GCP (`docworks-514722` / `#746704433311`):** Single GCP project hosting both `scrubdoc-<provider>` and `diffdoc-<provider>` on Cloud Run (`us-central1`) sharing unified Firestore `entitlements_{provider}` documents and least-privilege runtime Service Account `docworks-prod-runner@docworks-514722.iam.gserviceaccount.com`.
 
 ## Health & Verification Endpoints
 
