@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/app/icon.svg?v=11" />
   <link rel="icon" type="image/png" sizes="64x64" href="/static/app/icon_64.png?v=11" />
   <link rel="stylesheet" href="/static/shared/css/suite-shell.css?v=13" />
-  <link rel="stylesheet" href="/static/app/css/styles.css?v=14" />
+  <link rel="stylesheet" href="/static/app/css/styles.css?v=15" />
   <script defer src="/static/vendor/pdf-lib.min.js?v=11"></script>
   <script defer src="/static/vendor/pdf.min.js?v=11"></script>
   <script defer src="/static/vendor/exifr.full.umd.js?v=11"></script>
@@ -153,8 +153,16 @@
                 <div class="docx-banner-copy">
                   <h3>Word Document Preview</h3>
                   <p>
-                    Hidden author properties, comments, and tracked changes are stripped on save. Click any highlighted item below or on the right to black it out with permanent <code>&#9608;</code> blocks.
+                    Hidden author properties, comments, and tracked changes are stripped on save. Click highlighted items, drag over any text below, or add custom terms on the right to black out with permanent <code>&#9608;</code> blocks.
                   </p>
+                </div>
+              </div>
+              <div id="docx-selection-bar" class="docx-selection-bar hidden" role="region" aria-label="Selected text actions">
+                <span class="docx-sel-preview" id="docx-sel-preview"></span>
+                <div class="docx-sel-actions">
+                  <button class="btn btn-primary btn-sm" id="btn-docx-redact-here" type="button">Black Out Selection</button>
+                  <button class="btn btn-secondary btn-sm hidden" id="btn-docx-redact-all" type="button">All Matches</button>
+                  <button class="btn btn-ghost btn-sm" id="btn-docx-redact-cancel" type="button">Cancel</button>
                 </div>
               </div>
               <div id="docx-preview-sections" class="docx-preview-sections"></div>
@@ -205,6 +213,18 @@
               <button class="cat-pill" data-cat="phi" type="button">PHI / Medical</button>
               <button class="cat-pill" data-cat="pii" type="button">Personal</button>
               <button class="cat-pill" data-cat="financial" type="button">Financial</button>
+              <button class="cat-pill hidden" data-cat="custom" type="button">Custom</button>
+            </div>
+
+            <div class="docx-custom-bar hidden" id="docx-custom-bar">
+              <input
+                type="text"
+                id="inp-docx-custom-term"
+                class="docx-custom-input"
+                placeholder="Custom word or phrase to black out..."
+                aria-label="Custom word or phrase to black out"
+              />
+              <button class="btn btn-primary btn-sm" id="btn-add-docx-custom" type="button">Add</button>
             </div>
 
             <div class="pii-list" id="pii-checklist"></div>
@@ -273,6 +293,6 @@
 
   <footer class="app-footer"></footer>
 
-  <script type="module" src="/static/app/js/app.js?v=14"></script>
+  <script type="module" src="/static/app/js/app.js?v=15"></script>
 </body>
 </html>

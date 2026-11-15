@@ -58,6 +58,17 @@ function getElementsByLocalName(root, localName) {
   return out;
 }
 
+function hasDocxAncestorTag(node, tagSet, stopAt = null) {
+  let cur = node.parentNode;
+  while (cur && cur !== stopAt) {
+    if (cur.nodeType === 1 && tagSet.has(cur.localName)) {
+      return true;
+    }
+    cur = cur.parentNode;
+  }
+  return false;
+}
+
 function isInsideSkippedDocxSubtree(node, stopAt) {
   let cur = node.parentNode;
   while (cur && cur !== stopAt) {
@@ -67,6 +78,42 @@ function isInsideSkippedDocxSubtree(node, stopAt) {
     cur = cur.parentNode;
   }
   return false;
+}
+
+const DOCX_PREVIEW_SKIP_TAGS = new Set([...DOCX_SKIP_READ_TAGS, "Fallback"]);
+
+export function findTermRangesInText(text, term, caseInsensitive = false) {
+  const ranges = [];
+  if (!text || !term) return ranges;
+  if (!caseInsensitive) {
+    let from = 0;
+    while (from <= text.length - term.length) {
+      const idx = text.indexOf(term, from);
+      if (idx === -1) break;
+      ranges.push({ start: idx, end: idx + term.length });
+      from = idx + term.length;
+    }
+    return ranges;
+  }
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(escaped, "gi");
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (!m[0].length) break;
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+  return ranges;
+}
+
+function getActiveDocxParagraphs(doc) {
+  const list = [];
+  const indexMap = new Map();
+  for (const p of getElementsByLocalName(doc, "p")) {
+    if (hasDocxAncestorTag(p, DOCX_SKIP_READ_TAGS, doc)) continue;
+    indexMap.set(p, list.length);
+    list.push(p);
+  }
+  return { list, indexMap };
 }
 
 function normalizeZipPath(rawPath) {
@@ -165,41 +212,84 @@ function collectDocxParagraphRuns(pNode) {
 
 function extractReadableBlocksFromDoc(doc) {
   const lines = [];
+  const blocks = [];
   const root = getElementsByLocalName(doc, "body")[0] || doc.documentElement;
-  if (!root) return lines;
+  if (!root) return { lines, blocks };
+
+  const { indexMap } = getActiveDocxParagraphs(doc);
+
+  const pushStandaloneParagraph = (pNode) => {
+    const { combined } = collectDocxParagraphRuns(pNode);
+    if (!combined.trim()) return;
+    const pIndex = indexMap.get(pNode);
+    lines.push(combined);
+    blocks.push({
+      text: combined,
+      segments: pIndex !== undefined ? [{ pIndex, lineStart: 0, lineEnd: combined.length, trimOffset: 0 }] : [],
+    });
+  };
 
   const visit = (node) => {
     for (let child = node.firstChild; child; child = child.nextSibling) {
       if (child.nodeType !== 1) continue;
       const ln = child.localName;
-      if (DOCX_SKIP_READ_TAGS.has(ln)) continue;
+      if (DOCX_PREVIEW_SKIP_TAGS.has(ln)) continue;
       if (ln === "p") {
-        const { combined } = collectDocxParagraphRuns(child);
-        if (combined.trim()) lines.push(combined);
-        // Also inspect nested textboxes/drawings inside this paragraph for inner <w:p>s
+        pushStandaloneParagraph(child);
+        // Also inspect nested non-skipped textboxes/drawings inside this paragraph for inner <w:p>s
         for (const innerP of getElementsByLocalName(child, "p")) {
           if (innerP === child || isInsideSkippedDocxSubtree(innerP, child)) continue;
-          const inner = collectDocxParagraphRuns(innerP);
-          if (inner.combined.trim()) lines.push(inner.combined);
+          if (hasDocxAncestorTag(innerP, DOCX_PREVIEW_SKIP_TAGS, child)) continue;
+          pushStandaloneParagraph(innerP);
         }
       } else if (ln === "tbl") {
         for (let rChild = child.firstChild; rChild; rChild = rChild.nextSibling) {
           if (rChild.nodeType !== 1) continue;
+          if (DOCX_PREVIEW_SKIP_TAGS.has(rChild.localName)) continue;
           if (rChild.localName === "tr") {
-            const cells = [];
+            let rowText = "";
+            const rowSegments = [];
+            let cellCount = 0;
+
             for (let cChild = rChild.firstChild; cChild; cChild = cChild.nextSibling) {
-              if (cChild.nodeType === 1 && cChild.localName === "tc") {
-                const cellLines = [];
-                for (const pNode of getElementsByLocalName(cChild, "p")) {
-                  if (isInsideSkippedDocxSubtree(pNode, cChild)) continue;
-                  const { combined } = collectDocxParagraphRuns(pNode);
-                  if (combined.trim()) cellLines.push(combined.trim());
+              if (cChild.nodeType !== 1 || cChild.localName !== "tc") continue;
+              const cellParas = [];
+              for (const pNode of getElementsByLocalName(cChild, "p")) {
+                if (isInsideSkippedDocxSubtree(pNode, cChild)) continue;
+                if (hasDocxAncestorTag(pNode, DOCX_PREVIEW_SKIP_TAGS, cChild)) continue;
+                const { combined } = collectDocxParagraphRuns(pNode);
+                const trimmed = combined.trim();
+                if (!trimmed) continue;
+                const trimOffset = combined.length - combined.trimStart().length;
+                cellParas.push({
+                  pIndex: indexMap.get(pNode),
+                  trimmed,
+                  trimOffset,
+                });
+              }
+              if (cellParas.length === 0) continue;
+              if (cellCount > 0) rowText += " | ";
+              cellCount += 1;
+              for (let k = 0; k < cellParas.length; k++) {
+                if (k > 0) rowText += " ";
+                const cp = cellParas[k];
+                const lineStart = rowText.length;
+                rowText += cp.trimmed;
+                if (cp.pIndex !== undefined) {
+                  rowSegments.push({
+                    pIndex: cp.pIndex,
+                    lineStart,
+                    lineEnd: rowText.length,
+                    trimOffset: cp.trimOffset,
+                  });
                 }
-                const cellText = cellLines.join(" ");
-                if (cellText) cells.push(cellText);
               }
             }
-            if (cells.length > 0) lines.push(cells.join(" | "));
+
+            if (rowText) {
+              lines.push(rowText);
+              blocks.push({ text: rowText, segments: rowSegments });
+            }
           }
         }
       } else {
@@ -209,7 +299,7 @@ function extractReadableBlocksFromDoc(doc) {
   };
 
   visit(root);
-  return lines;
+  return { lines, blocks };
 }
 
 function ensurePdfWorkerConfigured() {
@@ -236,11 +326,13 @@ export class RedactorWorkspace {
 
     this.autoFindings = [];
     this.manualBoxes = [];
+    this.manualDocxRedactions = [];
     this.docxPreviewSections = [];
     this.hoveredFindingId = null;
     this.isOcrScanning = false;
     this.ocrStatusText = "";
     this._loadToken = 0;
+    this._customDocxSeq = 0;
 
     this._dragStart = null;
     this._dragCurrent = null;
@@ -334,6 +426,7 @@ export class RedactorWorkspace {
     this.format = format;
     this.autoFindings = [];
     this.manualBoxes = [];
+    this.manualDocxRedactions = [];
     this.docxPreviewSections = [];
     this.hoveredFindingId = null;
     this.isOcrScanning = false;
@@ -574,9 +667,9 @@ export class RedactorWorkspace {
       const xmlStr = await zip.file(path).async("string");
       const doc = parser.parseFromString(xmlStr, "application/xml");
       if (doc.getElementsByTagName("parsererror").length > 0) continue;
-      const lines = extractReadableBlocksFromDoc(doc);
+      const { lines, blocks } = extractReadableBlocksFromDoc(doc);
       if (lines.length > 0) {
-        sections.push({ path, title: labelDocxPart(path, mainPath), lines });
+        sections.push({ path, title: labelDocxPart(path, mainPath), lines, blocks });
         allLines.push(...lines);
       }
     }
@@ -585,10 +678,144 @@ export class RedactorWorkspace {
     this.autoFindings = detectPiiInPlainText(allLines.join("\n"));
   }
 
+  getManualRedactionCount() {
+    return this.format === "docx" ? this.manualDocxRedactions.length : this.manualBoxes.length;
+  }
+
+  countDocxTermOccurrences(term, caseInsensitive = false) {
+    if (!term || this.format !== "docx") return 0;
+    let total = 0;
+    for (const sec of this.docxPreviewSections) {
+      for (const line of sec.lines) {
+        total += findTermRangesInText(line, term, caseInsensitive).length;
+      }
+    }
+    return total;
+  }
+
+  addDocxCustomRedaction({
+    rawValue,
+    scope = "all",
+    caseInsensitive = false,
+    sectionPath = null,
+    sectionTitle = "",
+    slices = [],
+  }) {
+    if (this.format !== "docx" || !rawValue || !rawValue.trim()) return null;
+    const cleanText = String(rawValue);
+
+    if (scope === "all") {
+      const normalizedNeedle = caseInsensitive ? cleanText.toLowerCase() : cleanText;
+      const existing = this.manualDocxRedactions.find(
+        (m) =>
+          m.scope === "all" &&
+          Boolean(m.caseInsensitive) === Boolean(caseInsensitive) &&
+          (caseInsensitive ? m.rawValue.toLowerCase() : m.rawValue) === normalizedNeedle
+      );
+      if (existing) {
+        existing.enabled = true;
+        this.onStateChange?.();
+        return existing;
+      }
+
+      const occurrences = this.countDocxTermOccurrences(cleanText, caseInsensitive);
+      if (occurrences === 0) return null;
+
+      const compact = cleanText.replace(/\s+/g, " ").trim();
+      const masked = compact.length > 26 ? `${compact.slice(0, 23)}...` : compact;
+      const item = {
+        id: `docx-custom-${++this._customDocxSeq}`,
+        category: "custom",
+        label: "Custom Redaction",
+        rawValue: cleanText,
+        masked,
+        scope: "all",
+        caseInsensitive: Boolean(caseInsensitive),
+        occurrences,
+        isDocxText: true,
+        isCustomDocx: true,
+        enabled: true,
+      };
+      this.manualDocxRedactions.push(item);
+      this.onStateChange?.();
+      return item;
+    }
+
+    // Instance-scoped selection (one or more contiguous block slices within preview)
+    if (!Array.isArray(slices) || slices.length === 0) return null;
+
+    const paragraphTargets = [];
+    for (const sl of slices) {
+      const sec = this.docxPreviewSections.find((s) => s.path === sl.sectionPath);
+      const block = sec?.blocks?.[sl.blockIndex];
+      if (!sec || !block) continue;
+      for (const seg of block.segments || []) {
+        const ovStart = Math.max(sl.startChar, seg.lineStart);
+        const ovEnd = Math.min(sl.endChar, seg.lineEnd);
+        if (ovStart >= ovEnd) continue;
+        paragraphTargets.push({
+          sectionPath: sl.sectionPath,
+          pIndex: seg.pIndex,
+          startInP: ovStart - seg.lineStart + (seg.trimOffset || 0),
+          endInP: ovEnd - seg.lineStart + (seg.trimOffset || 0),
+        });
+      }
+    }
+    if (paragraphTargets.length === 0) return null;
+
+    const sig = slices
+      .map((s) => `${s.sectionPath}:${s.blockIndex}:${s.startChar}-${s.endChar}`)
+      .join("|");
+    const existingInst = this.manualDocxRedactions.find(
+      (m) => m.scope === "instance" && m._signature === sig
+    );
+    if (existingInst) {
+      existingInst.enabled = true;
+      this.onStateChange?.();
+      return existingInst;
+    }
+
+    const compact = cleanText.replace(/\s+/g, " ").trim();
+    const masked = compact.length > 26 ? `${compact.slice(0, 23)}...` : compact;
+    const item = {
+      id: `docx-custom-${++this._customDocxSeq}`,
+      category: "custom",
+      label: "Custom Selection",
+      rawValue: cleanText,
+      masked,
+      scope: "instance",
+      sectionPath,
+      sectionTitle,
+      slices: slices.map((s) => ({ ...s })),
+      paragraphTargets,
+      _signature: sig,
+      isDocxText: true,
+      isCustomDocx: true,
+      enabled: true,
+    };
+    this.manualDocxRedactions.push(item);
+    this.onStateChange?.();
+    return item;
+  }
+
+  removeDocxCustomRedaction(id) {
+    const beforeLen = this.manualDocxRedactions.length;
+    this.manualDocxRedactions = this.manualDocxRedactions.filter((m) => m.id !== id);
+    if (this.manualDocxRedactions.length !== beforeLen) {
+      if (this.hoveredFindingId === id) this.hoveredFindingId = null;
+      this.onStateChange?.();
+    }
+  }
+
   setAllAutoFindings(enabled, categoryFilter = "all") {
     for (const f of this.autoFindings) {
       if (categoryFilter === "all" || f.category === categoryFilter) {
         f.enabled = enabled;
+      }
+    }
+    if (this.format === "docx" && (categoryFilter === "all" || categoryFilter === "custom")) {
+      for (const m of this.manualDocxRedactions) {
+        m.enabled = enabled;
       }
     }
     this.redrawOverlay();
@@ -694,6 +921,13 @@ export class RedactorWorkspace {
   }
 
   undoLastManualBox() {
+    if (this.format === "docx") {
+      if (this.manualDocxRedactions.length > 0) {
+        this.manualDocxRedactions.pop();
+        this.onStateChange?.();
+      }
+      return;
+    }
     for (let i = this.manualBoxes.length - 1; i >= 0; i--) {
       if (this.manualBoxes[i].pageIndex === this.currentPage) {
         this.manualBoxes.splice(i, 1);
@@ -711,6 +945,7 @@ export class RedactorWorkspace {
 
   clearManualBoxes() {
     this.manualBoxes = [];
+    this.manualDocxRedactions = [];
     this.redrawOverlay();
     this.onStateChange?.();
   }
@@ -728,7 +963,7 @@ export class RedactorWorkspace {
     return boxes;
   }
 
-  _scrubDocxXmlDocument(xmlStr, secretsToScrub) {
+  _scrubDocxXmlDocument(xmlStr, scrubSpec) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlStr, "application/xml");
     if (doc.getElementsByTagName("parsererror").length > 0) return xmlStr;
@@ -783,31 +1018,51 @@ export class RedactorWorkspace {
       mutatedXml = true;
     }
 
-    // 4. Permanently overwrite selected PII & PHI text inside <w:t> runs with `█`
-    if (secretsToScrub.length > 0) {
-      const pNodes = getElementsByLocalName(doc, "p");
-      for (const p of pNodes) {
-        const { combined, spans } = collectDocxParagraphRuns(p);
+    // 4. Permanently overwrite selected PII/PHI & custom text ranges inside <w:t> runs with `█`
+    const normalizedSpec = Array.isArray(scrubSpec)
+      ? {
+          globalRules: scrubSpec.filter(Boolean).map((raw) => ({ rawValue: raw, caseInsensitive: false })),
+          targetedSlicesByPIndex: null,
+        }
+      : scrubSpec || { globalRules: [], targetedSlicesByPIndex: null };
+    const globalRules = normalizedSpec.globalRules || [];
+    const targetedMap = normalizedSpec.targetedSlicesByPIndex || null;
+    const hasGlobal = globalRules.length > 0;
+    const hasTargeted = Boolean(targetedMap && targetedMap.size > 0);
+
+    if (hasGlobal || hasTargeted) {
+      const { list: activePs } = getActiveDocxParagraphs(doc);
+      for (let pIdx = 0; pIdx < activePs.length; pIdx++) {
+        const targetRanges = hasTargeted ? targetedMap.get(pIdx) : null;
+        if (!hasGlobal && (!targetRanges || targetRanges.length === 0)) continue;
+
+        const { combined, spans } = collectDocxParagraphRuns(activePs[pIdx]);
         if (!combined || spans.length === 0) continue;
 
-        let pMutated = false;
-        for (const secret of secretsToScrub) {
-          if (!secret) continue;
-          let fromIdx = 0;
-          while (fromIdx <= combined.length - secret.length) {
-            const hitIdx = combined.indexOf(secret, fromIdx);
-            if (hitIdx === -1) break;
-            const hitEnd = hitIdx + secret.length;
-            for (const sp of spans) {
-              const ovStart = Math.max(hitIdx, sp.start);
-              const ovEnd = Math.min(hitEnd, sp.end);
-              for (let pos = ovStart; pos < ovEnd; pos++) {
-                sp.chars[pos - sp.start] = "█";
-                pMutated = true;
-                mutatedXml = true;
-              }
+        const maskRanges = [];
+        if (targetRanges && targetRanges.length > 0) {
+          for (const tr of targetRanges) maskRanges.push({ start: tr.start, end: tr.end });
+        }
+        if (hasGlobal) {
+          for (const rule of globalRules) {
+            if (!rule?.rawValue) continue;
+            for (const r of findTermRangesInText(combined, rule.rawValue, Boolean(rule.caseInsensitive))) {
+              maskRanges.push(r);
             }
-            fromIdx = hitEnd;
+          }
+        }
+        if (maskRanges.length === 0) continue;
+
+        let pMutated = false;
+        for (const r of maskRanges) {
+          for (const sp of spans) {
+            const ovStart = Math.max(r.start, sp.start);
+            const ovEnd = Math.min(r.end, sp.end);
+            for (let pos = ovStart; pos < ovEnd; pos++) {
+              sp.chars[pos - sp.start] = "█";
+              pMutated = true;
+              mutatedXml = true;
+            }
           }
         }
 
@@ -1024,16 +1279,34 @@ export class RedactorWorkspace {
 
       await this._cleanDocxPackageMetadata(zip);
 
-      // Always strip comments/tracked-change history AND overwrite any selected PII/PHI runs with `█`
-      const secretsToScrub = this.autoFindings
-        .filter((f) => f.enabled && f.rawValue)
-        .map((f) => f.rawValue)
-        .sort((a, b) => b.length - a.length);
+      // Always strip comments/tracked-change history AND overwrite enabled PII/PHI & custom text with `█`
+      const globalRules = [
+        ...this.autoFindings
+          .filter((f) => f.enabled && f.rawValue)
+          .map((f) => ({ rawValue: f.rawValue, caseInsensitive: false })),
+        ...this.manualDocxRedactions
+          .filter((m) => m.enabled && m.scope === "all" && m.rawValue)
+          .map((m) => ({ rawValue: m.rawValue, caseInsensitive: Boolean(m.caseInsensitive) })),
+      ].sort((a, b) => b.rawValue.length - a.rawValue.length);
+
+      const targetedByPath = new Map();
+      for (const m of this.manualDocxRedactions) {
+        if (!m.enabled || m.scope !== "instance") continue;
+        for (const t of m.paragraphTargets || []) {
+          if (!targetedByPath.has(t.sectionPath)) targetedByPath.set(t.sectionPath, new Map());
+          const pMap = targetedByPath.get(t.sectionPath);
+          if (!pMap.has(t.pIndex)) pMap.set(t.pIndex, []);
+          pMap.get(t.pIndex).push({ start: t.startInP, end: t.endInP });
+        }
+      }
 
       const xmlTargets = listDocxContentPaths(zip, mainPath);
       for (const path of xmlTargets) {
         const rawXml = await zip.file(path).async("string");
-        const scrubbedXml = this._scrubDocxXmlDocument(rawXml, secretsToScrub);
+        const scrubbedXml = this._scrubDocxXmlDocument(rawXml, {
+          globalRules,
+          targetedSlicesByPIndex: targetedByPath.get(path) || null,
+        });
         if (scrubbedXml !== rawXml) {
           zip.file(path, scrubbedXml);
         }

@@ -1,7 +1,7 @@
 import { createProviderClient } from "/static/providers/registry.js?v=12";
 import { detectFileFormatFromBytes, runMetadataXray } from "./metadata_xray.js?v=14";
 import { generateAnonymousStem, inspectFilenameForPii } from "./pii_detector.js?v=14";
-import { RedactorWorkspace } from "./redactor_engine.js?v=14";
+import { RedactorWorkspace, findTermRangesInText } from "./redactor_engine.js?v=15";
 import { ShareRadarScanner } from "/static/shared/js/shareradar_engine.js?v=11";
 import {
   el,
@@ -26,6 +26,7 @@ const state = {
   activeFileFormat: null,
   saveMode: "new_copy", // "new_copy" | "overwrite"
   piiCategoryFilter: "all",
+  pendingDocxSelection: null,
   lastSavedFileId: null,
   lastSharedLinkUrl: null,
   pickerFolderId: "0",
@@ -353,11 +354,15 @@ async function openFileInScrubber(fileId) {
 
     const isDocx = fmt === "docx";
     state.piiCategoryFilter = "all";
+    state.pendingDocxSelection = null;
     el("canvas-wrapper").classList.toggle("hidden", isDocx);
     el("docx-friendly-card").classList.toggle("hidden", !isDocx);
+    el("docx-selection-bar").classList.add("hidden");
+    el("docx-custom-bar").classList.toggle("hidden", !isDocx);
+    el("inp-docx-custom-term").value = "";
     el("draw-helper-tip").classList.remove("hidden");
     el("draw-helper-tip").textContent = isDocx
-      ? "Click highlighted items below or on the right to black out"
+      ? "Click highlighted items, drag text below, or add terms on the right"
       : "Click highlighted items or drag anywhere to black out";
     el("pii-section-card").classList.remove("hidden");
 
@@ -403,35 +408,216 @@ async function openFileInScrubber(fileId) {
     renderRedactorSidebarState();
   } catch (err) {
     console.error("openFileInScrubber error:", err);
+    clearDocxSelectionBar();
     el("scrub-workspace").classList.add("hidden");
     el("scrub-empty-prompt").classList.remove("hidden");
     showToast(err.message || `Unable to open this file from ${state.providerName}.`, "error");
   }
 }
 
+function clearDocxSelectionBar(clearDomSelection = false) {
+  state.pendingDocxSelection = null;
+  const bar = el("docx-selection-bar");
+  if (bar) bar.classList.add("hidden");
+  if (clearDomSelection) {
+    window.getSelection?.()?.removeAllRanges?.();
+  }
+}
+
+function measureParaCharOffset(paraEl, targetNode, targetOffset) {
+  if (!paraEl || !paraEl.contains(targetNode)) return null;
+  if (targetNode === paraEl && targetOffset >= paraEl.childNodes.length) {
+    return paraEl.textContent.length;
+  }
+  let acc = 0;
+  let found = false;
+  const walk = (node) => {
+    if (found) return;
+    if (node === targetNode && node.nodeType === 3) {
+      acc += Math.min(targetOffset, (node.nodeValue || "").length);
+      found = true;
+      return;
+    }
+    if (node === targetNode && node.nodeType === 1) {
+      const limit = Math.min(targetOffset, node.childNodes.length);
+      for (let i = 0; i < limit; i++) {
+        acc += (node.childNodes[i].textContent || "").length;
+      }
+      found = true;
+      return;
+    }
+    if (node.nodeType === 3) {
+      acc += (node.nodeValue || "").length;
+      return;
+    }
+    for (const ch of node.childNodes) {
+      walk(ch);
+      if (found) return;
+    }
+  };
+  walk(paraEl);
+  return found ? acc : null;
+}
+
+function captureDocxSelectionSnapshot() {
+  const r = state.redactor;
+  const container = el("docx-preview-sections");
+  if (!r || r.format !== "docx" || !container) {
+    clearDocxSelectionBar();
+    return;
+  }
+
+  const sel = window.getSelection?.();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+    clearDocxSelectionBar();
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  const findPara = (node) => {
+    const elem = node.nodeType === 1 ? node : node.parentElement;
+    return elem?.closest?.(".docx-para") || null;
+  };
+  const startPara = findPara(range.startContainer);
+  const endPara = findPara(range.endContainer);
+  if (!startPara || !endPara || !container.contains(startPara) || !container.contains(endPara)) {
+    clearDocxSelectionBar();
+    return;
+  }
+
+  const allParas = Array.from(container.querySelectorAll(".docx-para"));
+  const pStartIdx = allParas.indexOf(startPara);
+  const pEndIdx = allParas.indexOf(endPara);
+  if (pStartIdx === -1 || pEndIdx === -1) {
+    clearDocxSelectionBar();
+    return;
+  }
+
+  const [firstIdx, lastIdx] = pStartIdx <= pEndIdx ? [pStartIdx, pEndIdx] : [pEndIdx, pStartIdx];
+  const rawStartOff = measureParaCharOffset(startPara, range.startContainer, range.startOffset);
+  const rawEndOff = measureParaCharOffset(endPara, range.endContainer, range.endOffset);
+  if (rawStartOff === null || rawEndOff === null) {
+    clearDocxSelectionBar();
+    return;
+  }
+
+  const startOffsetInFirst =
+    pStartIdx === pEndIdx ? Math.min(rawStartOff, rawEndOff) : pStartIdx < pEndIdx ? rawStartOff : rawEndOff;
+  const endOffsetInLast =
+    pStartIdx === pEndIdx ? Math.max(rawStartOff, rawEndOff) : pStartIdx < pEndIdx ? rawEndOff : rawStartOff;
+
+  const slices = [];
+  const selectedParts = [];
+
+  for (let i = firstIdx; i <= lastIdx; i++) {
+    const pEl = allParas[i];
+    const sectionPath = pEl.dataset.sectionPath;
+    const blockIndex = parseInt(pEl.dataset.blockIndex || "-1", 10);
+    const sec = r.docxPreviewSections.find((s) => s.path === sectionPath);
+    const lineText = sec?.lines?.[blockIndex];
+    if (typeof lineText !== "string") continue;
+
+    let sChar = i === firstIdx ? startOffsetInFirst : 0;
+    let eChar = i === lastIdx ? endOffsetInLast : lineText.length;
+    if (firstIdx === lastIdx) {
+      const sub = lineText.slice(sChar, eChar);
+      const leadWs = sub.length - sub.trimStart().length;
+      const trailWs = sub.length - sub.trimEnd().length;
+      sChar += leadWs;
+      eChar -= trailWs;
+    }
+    if (sChar >= eChar) continue;
+    const sliceText = lineText.slice(sChar, eChar);
+    if (!sliceText.trim()) continue;
+    slices.push({
+      sectionPath,
+      sectionTitle: sec.title,
+      blockIndex,
+      startChar: sChar,
+      endChar: eChar,
+    });
+    selectedParts.push(sliceText);
+  }
+
+  if (slices.length === 0) {
+    clearDocxSelectionBar();
+    return;
+  }
+
+  const rawValue = selectedParts.join("\n");
+  const allCount = slices.length === 1 ? r.countDocxTermOccurrences(rawValue, false) : 0;
+  state.pendingDocxSelection = {
+    rawValue,
+    sectionPath: slices[0].sectionPath,
+    sectionTitle: slices[0].sectionTitle,
+    slices,
+    allCount,
+  };
+
+  const compact = rawValue.replace(/\s+/g, " ").trim();
+  const snippet = compact.length > 36 ? `${compact.slice(0, 33)}...` : compact;
+  el("docx-sel-preview").textContent = `Selected: "${snippet}"`;
+
+  const btnHere = el("btn-docx-redact-here");
+  const btnAll = el("btn-docx-redact-all");
+  if (slices.length === 1 && allCount > 1) {
+    btnHere.textContent = "Black Out Here";
+    btnAll.textContent = `All Matches (${allCount})`;
+    btnAll.classList.remove("hidden");
+  } else {
+    btnHere.textContent = slices.length > 1 ? `Black Out Selection (${slices.length} lines)` : "Black Out Selection";
+    btnAll.classList.add("hidden");
+  }
+  el("docx-selection-bar").classList.remove("hidden");
+}
+
 function updateDocxHoverHighlight(findingId) {
   const container = el("docx-preview-sections");
   if (!container) return;
-  container.querySelectorAll(".docx-pii-token").forEach((btn) => {
-    btn.classList.toggle("is-hovered", Boolean(findingId) && btn.dataset.findingId === findingId);
+  container.querySelectorAll(".docx-pii-token").forEach((tok) => {
+    tok.classList.toggle("is-hovered", Boolean(findingId) && tok.dataset.findingId === findingId);
   });
 }
 
-function appendHighlightedDocxLine(pEl, line, findingsDesc, hoveredId, redactor) {
-  const spans = [];
+function appendHighlightedDocxLine(pEl, line, secPath, blkIdx, findingsDesc, customItems, hoveredId, redactor) {
+  const candidates = [];
+
+  for (const m of customItems) {
+    if (m.scope === "instance") {
+      for (const sl of m.slices || []) {
+        if (sl.sectionPath === secPath && sl.blockIndex === blkIdx) {
+          const s = Math.max(0, sl.startChar);
+          const e = Math.min(line.length, sl.endChar);
+          if (s < e) {
+            candidates.push({ start: s, end: e, finding: m, priority: 2 });
+          }
+        }
+      }
+    } else if (m.rawValue) {
+      for (const r of findTermRangesInText(line, m.rawValue, Boolean(m.caseInsensitive))) {
+        candidates.push({ start: r.start, end: r.end, finding: m, priority: 1 });
+      }
+    }
+  }
+
   for (const f of findingsDesc) {
     if (!f.rawValue) continue;
-    let from = 0;
-    while (from <= line.length - f.rawValue.length) {
-      const idx = line.indexOf(f.rawValue, from);
-      if (idx === -1) break;
-      const end = idx + f.rawValue.length;
-      const overlaps = spans.some((s) => Math.max(s.start, idx) < Math.min(s.end, end));
-      if (!overlaps) {
-        spans.push({ start: idx, end, finding: f });
-      }
-      from = end;
+    for (const r of findTermRangesInText(line, f.rawValue, false)) {
+      candidates.push({ start: r.start, end: r.end, finding: f, priority: 0 });
     }
+  }
+
+  candidates.sort(
+    (a, b) =>
+      b.priority - a.priority ||
+      b.end - b.start - (a.end - a.start) ||
+      a.start - b.start
+  );
+
+  const spans = [];
+  for (const c of candidates) {
+    const overlaps = spans.some((s) => Math.max(s.start, c.start) < Math.min(s.end, c.end));
+    if (!overlaps) spans.push(c);
   }
   spans.sort((a, b) => a.start - b.start);
 
@@ -442,22 +628,32 @@ function appendHighlightedDocxLine(pEl, line, findingsDesc, hoveredId, redactor)
     }
     const f = sp.finding;
     const rawSeg = line.slice(sp.start, sp.end);
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.dataset.findingId = f.id;
-    btn.className = `docx-pii-token${f.enabled ? " is-redacted" : ""}${
+    const tok = document.createElement("span");
+    tok.setAttribute("role", "button");
+    tok.tabIndex = 0;
+    tok.dataset.findingId = f.id;
+    tok.className = `docx-pii-token${f.isCustomDocx ? " is-custom" : ""}${f.enabled ? " is-redacted" : ""}${
       hoveredId === f.id ? " is-hovered" : ""
     }`;
-    btn.setAttribute("aria-pressed", f.enabled ? "true" : "false");
-    btn.title = `${f.label} — ${f.enabled ? "click to restore" : "click to black out"}`;
-    btn.textContent = f.enabled ? "█".repeat(rawSeg.length) : rawSeg;
-    btn.addEventListener("click", () => {
+    tok.setAttribute("aria-pressed", f.enabled ? "true" : "false");
+    tok.title = `${f.label} — ${f.enabled ? "click to restore" : "click to black out"}`;
+    tok.textContent = f.enabled ? "█".repeat(rawSeg.length) : rawSeg;
+    const toggleToken = () => {
+      const sel = window.getSelection?.();
+      if (sel && !sel.isCollapsed) return;
       f.enabled = !f.enabled;
       redactor.onStateChange?.();
+    };
+    tok.addEventListener("click", toggleToken);
+    tok.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleToken();
+      }
     });
-    btn.addEventListener("mouseenter", () => redactor.setHoveredFinding(f.id));
-    btn.addEventListener("mouseleave", () => redactor.setHoveredFinding(null));
-    pEl.appendChild(btn);
+    tok.addEventListener("mouseenter", () => redactor.setHoveredFinding(f.id));
+    tok.addEventListener("mouseleave", () => redactor.setHoveredFinding(null));
+    pEl.appendChild(tok);
     cursor = sp.end;
   }
   if (cursor < line.length) {
@@ -484,6 +680,7 @@ function renderDocxPreview() {
     .filter((f) => f.rawValue)
     .slice()
     .sort((a, b) => b.rawValue.length - a.rawValue.length);
+  const customItems = r.manualDocxRedactions || [];
 
   for (const sec of sections) {
     const secBlock = document.createElement("div");
@@ -494,10 +691,22 @@ function renderDocxPreview() {
     label.textContent = sec.title;
     secBlock.appendChild(label);
 
-    for (const line of sec.lines) {
+    for (let blkIdx = 0; blkIdx < sec.lines.length; blkIdx++) {
+      const line = sec.lines[blkIdx];
       const pEl = document.createElement("p");
       pEl.className = "docx-para";
-      appendHighlightedDocxLine(pEl, line, findingsDesc, r.hoveredFindingId, r);
+      pEl.dataset.sectionPath = sec.path;
+      pEl.dataset.blockIndex = String(blkIdx);
+      appendHighlightedDocxLine(
+        pEl,
+        line,
+        sec.path,
+        blkIdx,
+        findingsDesc,
+        customItems,
+        r.hoveredFindingId,
+        r
+      );
       secBlock.appendChild(pEl);
     }
     container.appendChild(secBlock);
@@ -516,6 +725,7 @@ function renderRedactorSidebarState() {
 
   if (r.format === "docx") {
     renderDocxPreview();
+    clearDocxSelectionBar();
   }
 
   const showStepper = r.format === "pdf" && r.pageCount > 1;
@@ -526,16 +736,21 @@ function renderRedactorSidebarState() {
     el("btn-next-page").disabled = r.currentPage >= r.pageCount - 1;
   }
 
-  el("manual-box-controls").classList.toggle("hidden", r.manualBoxes.length === 0);
+  const manualCount = r.getManualRedactionCount();
+  el("manual-box-controls").classList.toggle("hidden", manualCount === 0);
+  el("btn-clear-boxes").textContent = r.format === "docx" ? "Clear custom" : "Clear drawn";
+  el("docx-custom-bar").classList.toggle("hidden", r.format !== "docx");
 
   el("ocr-progress-row").classList.toggle("hidden", !r.isOcrScanning);
   if (r.isOcrScanning) {
     el("ocr-progress-text").textContent = r.ocrStatusText || "Scanning image text for PII & PHI...";
   }
 
-  const totalFound = r.autoFindings.length;
-  const activeAuto = r.autoFindings.filter((f) => f.enabled).length;
-  const totalActive = activeAuto + r.manualBoxes.length;
+  const customItems = r.manualDocxRedactions || [];
+  const allItems = [...r.autoFindings, ...customItems];
+  const totalFound = allItems.length;
+  const activeItems = allItems.filter((f) => f.enabled).length;
+  const totalActive = activeItems + r.manualBoxes.length;
 
   if (totalFound === 0 && r.manualBoxes.length === 0) {
     el("pii-count-badge").textContent = r.isOcrScanning ? "Scanning..." : "None found";
@@ -550,12 +765,13 @@ function renderRedactorSidebarState() {
     phi: r.autoFindings.filter((f) => f.category === "phi").length,
     pii: r.autoFindings.filter((f) => f.category === "pii").length,
     financial: r.autoFindings.filter((f) => f.category === "financial").length,
+    custom: customItems.length,
   };
   if (state.piiCategoryFilter !== "all" && !catCounts[state.piiCategoryFilter]) {
     state.piiCategoryFilter = "all";
   }
 
-  const nonZeroCats = ["phi", "pii", "financial"].filter((c) => catCounts[c] > 0);
+  const nonZeroCats = ["phi", "pii", "financial", "custom"].filter((c) => catCounts[c] > 0);
   const pillsWrap = el("pii-category-pills");
   pillsWrap.classList.toggle("hidden", nonZeroCats.length < 2);
   if (nonZeroCats.length >= 2) {
@@ -564,6 +780,7 @@ function renderRedactorSidebarState() {
       phi: `PHI (${catCounts.phi})`,
       pii: `Personal (${catCounts.pii})`,
       financial: `Financial (${catCounts.financial})`,
+      custom: `Custom (${catCounts.custom})`,
     };
     pillsWrap.querySelectorAll(".cat-pill").forEach((btn) => {
       const cat = btn.dataset.cat;
@@ -574,7 +791,7 @@ function renderRedactorSidebarState() {
     });
   }
 
-  const visibleFindings = r.autoFindings.filter(
+  const visibleFindings = allItems.filter(
     (f) => state.piiCategoryFilter === "all" || f.category === state.piiCategoryFilter
   );
 
@@ -591,7 +808,7 @@ function renderRedactorSidebarState() {
     } else {
       btnBlackoutAll.textContent = `Black Out ${visibleFindings.length} Shown`;
     }
-    el("btn-unselect-all").disabled = activeAuto === 0;
+    el("btn-unselect-all").disabled = activeItems === 0;
   }
 
   const list = el("pii-checklist");
@@ -603,13 +820,13 @@ function renderRedactorSidebarState() {
     empty.textContent = r.isOcrScanning
       ? "Reading image text privately in your browser to highlight PII & PHI..."
       : r.format === "docx"
-      ? "No structured PII or PHI patterns found in document body."
+      ? "No structured PII or PHI patterns detected automatically. Drag text in the preview or add a custom phrase above to black out."
       : "No SSNs, PHI IDs, dates, cards, emails, or phones detected. Drag anywhere on the page to black out custom areas.";
     list.appendChild(empty);
     return;
   }
 
-  const catShortTag = { phi: "PHI", pii: "PII", financial: "FIN" };
+  const catShortTag = { phi: "PHI", pii: "PII", financial: "FIN", custom: "CUSTOM" };
 
   for (const f of visibleFindings) {
     const row = document.createElement("label");
@@ -632,19 +849,32 @@ function renderRedactorSidebarState() {
 
     const metaDiv = document.createElement("div");
     metaDiv.className = "pii-item-meta";
-    const locLabel = f.isDocxText
-      ? f.enabled
+    let locLabel;
+    if (f.isCustomDocx) {
+      if (f.scope === "instance") {
+        locLabel = f.enabled ? "Selected spot · Blacked out" : "Selected spot · Highlighted";
+      } else {
+        locLabel = f.enabled
+          ? f.occurrences > 1
+            ? `${f.occurrences} matches blacked out`
+            : "Blacked out"
+          : f.occurrences > 1
+          ? `${f.occurrences} matches in document`
+          : "Highlighted in document";
+      }
+    } else if (f.isDocxText) {
+      locLabel = f.enabled
         ? f.occurrences > 1
           ? `${f.occurrences} matches blacked out`
           : "Blacked out"
         : f.occurrences > 1
         ? `${f.occurrences} matches in document`
-        : "Highlighted in document"
-      : r.pageCount > 1
-      ? `Page ${f.pageIndex + 1}`
-      : f.enabled
-      ? "Blacked out"
-      : "Highlighted on page";
+        : "Highlighted in document";
+    } else if (r.pageCount > 1) {
+      locLabel = `Page ${f.pageIndex + 1}`;
+    } else {
+      locLabel = f.enabled ? "Blacked out" : "Highlighted on page";
+    }
     metaDiv.textContent = `${f.masked} · ${locLabel}`;
     infoDiv.append(titleRow, metaDiv);
 
@@ -661,7 +891,25 @@ function renderRedactorSidebarState() {
       renderRedactorSidebarState();
     });
 
-    row.append(infoDiv, chk);
+    if (f.isCustomDocx) {
+      const controls = document.createElement("div");
+      controls.className = "pii-item-controls";
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "pii-remove-btn";
+      removeBtn.title = "Remove custom redaction";
+      removeBtn.setAttribute("aria-label", `Remove ${f.masked}`);
+      removeBtn.textContent = "×";
+      removeBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        r.removeDocxCustomRedaction(f.id);
+      });
+      controls.append(removeBtn, chk);
+      row.append(infoDiv, controls);
+    } else {
+      row.append(infoDiv, chk);
+    }
     list.appendChild(row);
   }
 
@@ -700,6 +948,67 @@ function wireScrubControls() {
       state.piiCategoryFilter = btn.dataset.cat || "all";
       renderRedactorSidebarState();
     });
+  });
+
+  const scheduleSelectionCheck = () => window.setTimeout(captureDocxSelectionSnapshot, 0);
+  const previewSectionsEl = el("docx-preview-sections");
+  previewSectionsEl.addEventListener("mouseup", scheduleSelectionCheck);
+  previewSectionsEl.addEventListener("keyup", scheduleSelectionCheck);
+  previewSectionsEl.addEventListener("touchend", scheduleSelectionCheck);
+
+  for (const btnId of ["btn-docx-redact-here", "btn-docx-redact-all", "btn-docx-redact-cancel"]) {
+    el(btnId).addEventListener("mousedown", (e) => e.preventDefault());
+  }
+
+  el("btn-docx-redact-here").addEventListener("click", () => {
+    const snap = state.pendingDocxSelection;
+    if (!snap || !state.redactor) return;
+    state.redactor.addDocxCustomRedaction({
+      rawValue: snap.rawValue,
+      scope: "instance",
+      sectionPath: snap.sectionPath,
+      sectionTitle: snap.sectionTitle,
+      slices: snap.slices,
+    });
+    clearDocxSelectionBar(true);
+  });
+
+  el("btn-docx-redact-all").addEventListener("click", () => {
+    const snap = state.pendingDocxSelection;
+    if (!snap || !state.redactor) return;
+    state.redactor.addDocxCustomRedaction({
+      rawValue: snap.rawValue,
+      scope: "all",
+      caseInsensitive: false,
+    });
+    clearDocxSelectionBar(true);
+  });
+
+  el("btn-docx-redact-cancel").addEventListener("click", () => clearDocxSelectionBar(true));
+
+  const submitCustomDocxTerm = () => {
+    const inp = el("inp-docx-custom-term");
+    const term = inp.value.trim();
+    if (!term || !state.redactor || state.redactor.format !== "docx") return;
+    const added = state.redactor.addDocxCustomRedaction({
+      rawValue: term,
+      scope: "all",
+      caseInsensitive: true,
+    });
+    if (!added) {
+      showToast(`"${term}" was not found in this document.`, "error");
+      return;
+    }
+    inp.value = "";
+    inp.focus();
+  };
+
+  el("btn-add-docx-custom").addEventListener("click", submitCustomDocxTerm);
+  el("inp-docx-custom-term").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitCustomDocxTerm();
+    }
   });
 
   const applySaveModeUi = (mode) => {

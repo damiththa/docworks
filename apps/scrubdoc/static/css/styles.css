@@ -197,6 +197,39 @@
   color: var(--muted);
 }
 
+.docx-selection-bar {
+  position: sticky;
+  top: -12px;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.docx-sel-preview {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docx-sel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .docx-para {
   margin: 0;
   font-size: 13.5px;
@@ -204,19 +237,30 @@
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .docx-pii-token {
+  display: inline;
   font: inherit;
   line-height: inherit;
-  padding: 1px 4px;
+  padding: 0 3px;
   margin: 0 1px;
   border-radius: 4px;
   border: 1.5px solid #d97706;
   background: rgba(245, 158, 11, 0.22);
   color: var(--text);
   cursor: pointer;
+  user-select: text;
+  -webkit-user-select: text;
   transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.docx-pii-token.is-custom {
+  border-color: #4f46e5;
+  background: rgba(99, 102, 241, 0.16);
 }
 
 .docx-pii-token:hover,
@@ -465,6 +509,58 @@
 .pii-cat-financial {
   background: var(--primary-soft);
   color: var(--primary);
+}
+
+.pii-cat-custom {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.docx-custom-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.docx-custom-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 12px;
+  outline: none;
+}
+
+.docx-custom-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 97, 213, 0.12);
+}
+
+.pii-item-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pii-remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pii-remove-btn:hover {
+  background: var(--danger-soft);
+  color: #991b1b;
 }
 
 .pii-item-meta {
