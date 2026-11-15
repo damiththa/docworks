@@ -1,4 +1,4 @@
-import { createProviderClient } from "/static/providers/registry.js?v=11";
+import { createProviderClient } from "/static/providers/registry.js?v=12";
 import { extractDocumentText, computeTextRedline } from "./text_diff.js?v=11";
 import { VisualComparator, supportsVisualComparison } from "./visual_diff.js?v=11";
 import { diffSpreadsheets, supportsSpreadsheetComparison } from "./spreadsheet_diff.js?v=11";

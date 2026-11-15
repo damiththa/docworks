@@ -1,4 +1,4 @@
-import { createProviderClient } from "/static/providers/registry.js?v=11";
+import { createProviderClient } from "/static/providers/registry.js?v=12";
 import { detectFileFormatFromBytes, runMetadataXray } from "./metadata_xray.js?v=11";
 import { generateAnonymousStem, inspectFilenameForPii } from "./pii_detector.js?v=11";
 import { RedactorWorkspace } from "./redactor_engine.js?v=11";
@@ -668,7 +668,7 @@ function wireScrubControls() {
 
       showToast(`Saving redacted file to ${pName}...`, "info");
       const result = await state.redactor.exportSanitizedBytes({ flattenAllPages: false });
-      const parentId = state.activeFileMeta.parent?.id || "0";
+      const parentId = state.activeFileMeta.parent?.id || state.pickerFolderId || "0";
       const stem = el("inp-output-stem").value.trim() || "Clean_Copy";
 
       let uploaded = null;
@@ -693,9 +693,13 @@ function wireScrubControls() {
             result.bytes
           );
         } catch (uploadErr) {
-          // If Web Integration uses single-file scope instead of parent-folder scope,
-          // POST /files/content returns 403; fall back cleanly to saving a new version on fileId.
-          if (uploadErr && uploadErr.status === 403) {
+          // Box Web Integration tokens with single-file scope (or file-only shares without
+          // parent-folder visibility) reject POST /files/content with HTTP 403 or 404.
+          const isParentScopeError = uploadErr && (uploadErr.status === 403 || uploadErr.status === 404);
+          if (!isParentScopeError) {
+            throw uploadErr;
+          }
+          try {
             uploaded = await state.providerClient.uploadNewFileVersion(
               state.activeFileMeta.id,
               state.activeFileMeta.name,
@@ -703,8 +707,12 @@ function wireScrubControls() {
               result.bytes
             );
             usedSingleFileFallback = true;
-          } else {
-            throw uploadErr;
+          } catch (fallbackErr) {
+            throw new Error(
+              `Could not create a new copy in this ${pName} folder (${uploadErr.message}), ` +
+                `and updating the existing file failed (${fallbackErr.message || "permission denied"}). ` +
+                `Check that ${pName} Web Integration uses Parent Folder scope and Read/Write permissions.`
+            );
           }
         }
       }
@@ -717,7 +725,9 @@ function wireScrubControls() {
 
       const subEl = el("save-success-sub");
       if (usedSingleFileFallback) {
-        subEl.textContent = `Replaced original file in ${pName} (single-file integration scope active).`;
+        subEl.textContent =
+          `Updated original file as a new version in ${pName} (parent-folder access unavailable — ` +
+          `enable Parent Folder scope in ${pName} Web Integration to create separate copies).`;
         subEl.classList.remove("hidden");
       } else {
         subEl.textContent = "";

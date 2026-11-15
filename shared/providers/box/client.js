@@ -37,6 +37,25 @@ export class BoxProviderClient {
     };
   }
 
+  /**
+   * Formats a Box REST/Upload error payload, preserving HTTP status, `code`, and
+   * `context_info.errors` (instead of bare messages like `"Not Found"`).
+   */
+  _buildApiError(body, status, fallbackMsg) {
+    const contextMsgs = Array.isArray(body?.context_info?.errors)
+      ? body.context_info.errors
+          .map((item) => (item && (item.message || (item.name ? `${item.name}: ${item.reason || "invalid"}` : ""))) || "")
+          .filter(Boolean)
+      : [];
+    const baseMsg = (body && (body.message || body.error_description)) || fallbackMsg;
+    const msg = contextMsgs.length ? `${baseMsg} (${contextMsgs.join("; ")})` : baseMsg;
+    const err = new Error(msg);
+    err.status = status;
+    err.boxCode = body?.code || null;
+    err.boxBody = body || null;
+    return err;
+  }
+
   async _jsonFetch(url, options = {}) {
     const resp = await fetch(url, {
       cache: "no-store",
@@ -51,11 +70,7 @@ export class BoxProviderClient {
       body = null;
     }
     if (!resp.ok) {
-      const msg = (body && (body.message || body.error_description)) || `Box API error (${resp.status})`;
-      const err = new Error(msg);
-      err.status = resp.status;
-      err.boxBody = body;
-      throw err;
+      throw this._buildApiError(body, resp.status, `Box API error (${resp.status})`);
     }
     return body;
   }
@@ -210,6 +225,7 @@ export class BoxProviderClient {
    */
   async uploadNewSafeCopy(parentFolderId, stemName, extWithDot, mimeType, uint8Bytes) {
     const cleanStem = stemName.replace(/[\\/:*?"<>|]/g, "_").trim() || "Sanitized_Copy";
+    const safeParentId = String(parentFolderId || "0").trim() || "0";
 
     for (let suffixIdx = 1; suffixIdx <= 12; suffixIdx++) {
       const candidateName =
@@ -221,7 +237,7 @@ export class BoxProviderClient {
         "attributes",
         JSON.stringify({
           name: candidateName,
-          parent: { id: String(parentFolderId) },
+          parent: { id: safeParentId },
         })
       );
       form.append("file", new Blob([uint8Bytes], { type: mimeType }), candidateName);
@@ -238,10 +254,7 @@ export class BoxProviderClient {
 
       const data = await resp.json().catch(() => null);
       if (!resp.ok) {
-        const msg = (data && data.message) || `Upload to Box failed (HTTP ${resp.status})`;
-        const err = new Error(msg);
-        err.status = resp.status;
-        throw err;
+        throw this._buildApiError(data, resp.status, `Upload to Box failed (HTTP ${resp.status})`);
       }
       const uploadedEntry = data && data.entries && data.entries[0];
       if (!uploadedEntry) throw new Error("Upload succeeded but Box returned no file entry.");
@@ -272,10 +285,7 @@ export class BoxProviderClient {
 
     const data = await resp.json().catch(() => null);
     if (!resp.ok) {
-      const msg = (data && data.message) || `Saving version to Box failed (HTTP ${resp.status})`;
-      const err = new Error(msg);
-      err.status = resp.status;
-      throw err;
+      throw this._buildApiError(data, resp.status, `Saving version to Box failed (HTTP ${resp.status})`);
     }
     const uploadedEntry = data && data.entries && data.entries[0];
     if (!uploadedEntry) throw new Error("Version upload succeeded but Box returned no file entry.");

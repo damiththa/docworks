@@ -3,7 +3,7 @@
  * Instantiates the browser-direct CORS client matching `/api/public-config -> provider_id`.
  */
 
-import { BoxProviderClient } from "./box/client.js?v=11";
+import { BoxProviderClient } from "./box/client.js?v=12";
 import { DropboxProviderClient } from "./dropbox/client.js?v=11";
 import { GoogleDriveProviderClient } from "./gdrive/client.js?v=11";
 
