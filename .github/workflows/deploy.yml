@@ -370,11 +370,13 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
-          HEALTH_JSON="$(curl -fsS "${SERVICE_URL}/health")"
-          API_HEALTH_JSON="$(curl -fsS "${SERVICE_URL}/api/health")"
+          HEALTH_JSON="$(curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "${SERVICE_URL}/health")"
+          API_HEALTH_JSON="$(curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "${SERVICE_URL}/api/health")"
+          PUBLIC_CFG_JSON="$(curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "${SERVICE_URL}/api/public-config")"
+          echo "Verified /api/public-config: ${PUBLIC_CFG_JSON}"
 
-          for path in "/" "/privacy" "/terms" "/template"; do
-            code="$(curl -sS -o /dev/null -w "%{http_code}" "${SERVICE_URL}${path}")"
+          for path in "/" "/privacy" "/terms" "/template" "/static/shared/js/suite_shell.js" "/static/providers/registry.js"; do
+            code="$(curl -sS --retry 3 --retry-delay 2 -o /dev/null -w "%{http_code}" "${SERVICE_URL}${path}")"
             if [[ "${code}" != "200" ]]; then
               echo "::error::Endpoint ${SERVICE_URL}${path} returned HTTP ${code} instead of 200."
               exit 1
@@ -392,4 +394,5 @@ jobs:
             echo "| Image Tag | \`${IMAGE_TAG}\` |"
             echo "| \`/health\` | \`${HEALTH_JSON}\` |"
             echo "| \`/api/health\` | \`${API_HEALTH_JSON}\` |"
+            echo "| \`/api/public-config\` | \`${PUBLIC_CFG_JSON}\` |"
           } >> "${GITHUB_STEP_SUMMARY}"
