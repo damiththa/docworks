@@ -50,8 +50,12 @@ jobs:
           python3 -m json.tool .github/deploy-config.json >/dev/null
           test -f apps/scrubdoc/main.py
           test -f apps/scrubdoc/Dockerfile
+          test -f apps/scrubdoc/static/icon.svg
+          test -f apps/scrubdoc/static/icon_64.png
           test -f apps/diffdoc/main.py
           test -f apps/diffdoc/Dockerfile
+          test -f apps/diffdoc/static/icon.svg
+          test -f apps/diffdoc/static/icon_64.png
           test -f shared/backend/app_factory.py
           test -f shared/providers/registry.js
           test -f shared/frontend/suite-template.html

@@ -229,10 +229,7 @@ function ensureHeaderTemplate(config) {
   topbar.innerHTML = `
     <div class="brand-row">
       <div class="brand-icon" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2.75L4.75 5.75V11.5C4.75 16.25 7.84 20.58 12 21.75C16.16 20.58 19.25 16.25 19.25 11.5V5.75L12 2.75Z"/>
-          <path d="M8.75 12.25L11 14.5L15.5 9.75"/>
-        </svg>
+        <img src="/static/app/icon.svg?v=11" alt="" width="36" height="36" />
       </div>
       <div class="brand-text">
         <div class="brand-title-line">

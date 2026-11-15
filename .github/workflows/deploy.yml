@@ -375,7 +375,7 @@ jobs:
           PUBLIC_CFG_JSON="$(curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "${SERVICE_URL}/api/public-config")"
           echo "Verified /api/public-config: ${PUBLIC_CFG_JSON}"
 
-          for path in "/" "/privacy" "/terms" "/template" "/static/shared/js/suite_shell.js" "/static/providers/registry.js"; do
+          for path in "/" "/privacy" "/terms" "/template" "/static/shared/js/suite_shell.js" "/static/providers/registry.js" "/static/app/icon.svg" "/static/app/icon_64.png"; do
             code="$(curl -sS --retry 3 --retry-delay 2 -o /dev/null -w "%{http_code}" "${SERVICE_URL}${path}")"
             if [[ "${code}" != "200" ]]; then
               echo "::error::Endpoint ${SERVICE_URL}${path} returned HTTP ${code} instead of 200."
