@@ -1,6 +1,6 @@
 {
   "dev": {
-    "auto_deploy_on_push": false,
+    "auto_deploy_on_push": true,
     "active_providers": ["box"]
   },
   "prod": {
