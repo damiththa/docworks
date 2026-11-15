@@ -11,7 +11,7 @@ import {
   closeOrReturnToProvider,
   initUserBadge,
   createSuiteController,
-} from "/static/shared/js/suite_shell.js?v=11";
+} from "/static/shared/js/suite_shell.js?v=13";
 
 const state = {
   publicConfig: null,
@@ -161,7 +161,7 @@ async function bootstrap() {
     providerName: state.providerName,
     primaryTab: "scrub",
     primaryTabLabel: "Clean & Redact",
-    pickerSubtitle: "Browse the remaining files and folders in the folder you opened from — pick any file to clean or scan folder sharing.",
+    pickerSubtitle: "Browse files and folders in this folder — pick any file to clean or scan folder sharing.",
     getProviderClient: () => state.providerClient,
     getRadarScanner: () => state.radarScanner,
     getActiveFileId: () => state.activeFileMeta?.id || null,
@@ -282,7 +282,7 @@ async function bootstrap() {
     el("btn-done-window").classList.remove("hidden");
     updateQuotaBadge();
 
-    // Always keep #main-tabs (Clean & Redact | ShareRadar Pro | Other Files in Folder) visible across every mode.
+    // Always keep #main-tabs (Clean & Redact | ShareRadar Pro | Browse Files/Folders) visible across every mode.
     if (launch.fileId) {
       state.contextualLaunch = true;
       state.suite.switchTab("scrub");
@@ -341,7 +341,6 @@ async function openFileInScrubber(fileId) {
     if (meta.parent?.id) {
       state.pickerFolderId = String(meta.parent.id);
     }
-    el("active-context-label").textContent = meta.name;
     el("scrub-file-label").textContent = meta.name;
 
     const fmt = detectFileFormatFromBytes(bytes, meta.name);

@@ -1,0 +1,18 @@
+{
+  "service": "docworks-gateway",
+  "version": "1.0.0",
+  "effectiveDate": "2026-11-01",
+  "quotas": {
+    "freeScrubLimit": 25,
+    "freeDiffLimit": 5,
+    "freeRadarFixLimit": 25,
+    "overageFeeUsd": 0
+  },
+  "security": {
+    "zeroPiiMode": true,
+    "sessionTtlSeconds": 3600,
+    "allowedProviders": [
+      "box"
+    ]
+  }
+}

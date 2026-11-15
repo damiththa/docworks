@@ -171,10 +171,10 @@
       "pos": [344, 118],
       "size": [234, 84],
       "sources": [
-        { "path": "apps/diffdoc/static/index.html", "line": 1, "end_line": 324, "label": "DiffDoc workspace & ShareRadar container" },
-        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1005, "label": "Unified DocWorks Suite stylesheet" },
+        { "path": "apps/diffdoc/static/index.html", "line": 1, "end_line": 321, "label": "DiffDoc workspace & ShareRadar container" },
+        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1013, "label": "Unified DocWorks Suite stylesheet" },
         { "path": "apps/diffdoc/static/css/styles.css", "line": 1, "end_line": 805, "label": "DiffDoc comparison studio styles" },
-        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 1393, "label": "Shared header, ShareRadar & folder picker shell" },
+        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 1384, "label": "Shared header, ShareRadar & folder picker shell" },
         { "path": "shared/frontend/js/shareradar_engine.js", "line": 1, "end_line": 367, "label": "Folder sharing & guest hygiene engine" },
         { "path": "apps/diffdoc/static/js/app.js", "line": 200, "end_line": 688, "label": "DiffDoc launch, timeline & comparison controller" }
       ]
@@ -190,7 +190,7 @@
       "size": [234, 84],
       "sources": [
         { "path": "shared/providers/registry.js", "line": 1, "end_line": 35, "label": "Provider adapter registry" },
-        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 374, "label": "Browser-direct unified Box client" },
+        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 384, "label": "Browser-direct unified Box client" },
         { "path": "apps/diffdoc/static/js/app.js", "line": 548, "end_line": 560, "label": "In-RAM LRU byte cache" },
         { "path": "shared/providers/dropbox/client.js", "line": 1, "end_line": 49, "label": "Dropbox adapter scaffold" },
         { "path": "shared/providers/gdrive/client.js", "line": 1, "end_line": 49, "label": "Google Drive adapter scaffold" }

@@ -162,10 +162,10 @@
       "pos": [308, 126],
       "size": [224, 74],
       "sources": [
-        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 450, "label": "OAuth hash scrubbing, modals & injected suite chrome" },
-        { "path": "shared/frontend/js/suite_shell.js", "line": 644, "end_line": 1393, "label": "createSuiteController & 5-col folder browser" },
-        { "path": "shared/frontend/suite-template.html", "line": 1, "end_line": 80, "label": "Canonical DocWorks Suite Shell template (/template)" },
-        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1005, "label": "Unified DocWorks design tokens, modals & tables" }
+        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 446, "label": "OAuth hash scrubbing, modals & injected suite chrome" },
+        { "path": "shared/frontend/js/suite_shell.js", "line": 640, "end_line": 1384, "label": "createSuiteController & 5-col folder browser" },
+        { "path": "shared/frontend/suite-template.html", "line": 1, "end_line": 79, "label": "Canonical DocWorks Suite Shell template (/template)" },
+        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1013, "label": "Unified DocWorks design tokens, modals & tables" }
       ]
     },
     {
@@ -180,7 +180,7 @@
       "sources": [
         { "path": "shared/providers/registry.js", "line": 1, "end_line": 35, "label": "Client provider registry lookup" },
         { "path": "shared/providers/ARCHITECTURE.md", "line": 1, "end_line": 34, "label": "Adapter isolation contract across Box, Dropbox & GDrive" },
-        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 374, "label": "Full BoxBrowserClient (files, versions, ShareRadar, links)" },
+        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 384, "label": "Full BoxBrowserClient (files, versions, ShareRadar, links)" },
         { "path": "shared/providers/dropbox/client.js", "line": 1, "end_line": 49, "label": "Dropbox provider client scaffold" },
         { "path": "shared/providers/gdrive/client.js", "line": 1, "end_line": 49, "label": "Google Drive provider client scaffold" }
       ]
@@ -208,8 +208,8 @@
       "pos": [588, 126],
       "size": [226, 74],
       "sources": [
-        { "path": "apps/scrubdoc/static/index.html", "line": 1, "end_line": 276, "label": "ScrubDoc SPA entrypoint & deferred vendors" },
-        { "path": "apps/scrubdoc/static/js/app.js", "line": 137, "end_line": 401, "label": "ScrubDoc bootstrap & file scrubber pipeline" },
+        { "path": "apps/scrubdoc/static/index.html", "line": 1, "end_line": 273, "label": "ScrubDoc SPA entrypoint & deferred vendors" },
+        { "path": "apps/scrubdoc/static/js/app.js", "line": 137, "end_line": 400, "label": "ScrubDoc bootstrap & file scrubber pipeline" },
         { "path": "apps/scrubdoc/static/js/pii_detector.js", "line": 1, "end_line": 606, "label": "17+ PII, financial & HIPAA Safe Harbor detectors" },
         { "path": "apps/scrubdoc/static/js/redactor_engine.js", "line": 1, "end_line": 705, "label": "Full /Info+XMP wipe & 250-DPI pixel redactor" }
       ]
@@ -224,7 +224,7 @@
       "pos": [588, 260],
       "size": [226, 74],
       "sources": [
-        { "path": "apps/diffdoc/static/index.html", "line": 1, "end_line": 324, "label": "DiffDoc SPA entrypoint & deferred vendors" },
+        { "path": "apps/diffdoc/static/index.html", "line": 1, "end_line": 321, "label": "DiffDoc SPA entrypoint & deferred vendors" },
         { "path": "apps/diffdoc/static/js/app.js", "line": 200, "end_line": 1131, "label": "DiffDoc version timeline, sibling fallback & comparison controller" },
         { "path": "apps/diffdoc/static/js/text_diff.js", "line": 19, "end_line": 530, "label": "Patience LCS & word-token contract redline" },
         { "path": "apps/diffdoc/static/js/spreadsheet_diff.js", "line": 148, "end_line": 552, "label": "Zero-CVE OpenXML .xlsx formula & override diff" }

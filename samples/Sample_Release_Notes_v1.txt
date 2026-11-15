@@ -1,0 +1,10 @@
+DOCWORKS Q4 RELEASE & SLA SUMMARY
+Effective Date: 2026-11-01
+Support Response SLA: 4 hours (Business Hours)
+Monthly Base Subscription: $2,400
+Annual Prepay Discount: 15%
+
+Key Clauses:
+- All user documents remain strictly inside browser memory.
+- Audit retention window for anonymous counters: 12 months.
+- Early termination fee equals 50% of remaining contract value.

@@ -1,0 +1,5 @@
+SKU,Plan Name,Billing Cycle,Seats,Unit Price,Discount,Line Formula
+SKU-100,"Enterprise Tier, Annual",Annual,50,$180,15%,=D2*E2
+SKU-200,"Compliance Add-On, HIPAA",Annual,50,$45,10%,=D3*E3
+SKU-300,"Dedicated Support SLA",Annual,1,$3600,0%,=D4*E4
+TOTAL,"Combined Annual Subtotal",Annual,,, ,=SUM(G2:G4)

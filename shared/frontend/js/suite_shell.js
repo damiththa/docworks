@@ -3,7 +3,7 @@
  *
  * Provides a self-contained, reusable template for DocWorks apps (ScrubDoc,
  * DiffDoc, and future standalone tools across Box, Dropbox, and Google Drive):
- * unified top navigation with always-visible ShareRadar Pro & Other Files in Folder
+ * unified top navigation with always-visible ShareRadar Pro & Browse Files/Folders
  * tabs, toast notifications, OAuth launch parsing, provider user badge initialization,
  * ShareRadar Folder Sharing & Guest Hygiene workflow, 5-column Folder Browser,
  * Zero-PII footer, and interactive demo mode.
@@ -224,32 +224,28 @@ function ensureHeaderTemplate(config) {
   const suiteName = escapeHtml(config?.suiteName || "DocWorks");
   const appName = escapeHtml(config?.appName || "DocWorks App");
   const pName = escapeHtml(resolveProviderName(config));
-  const appSubtitle = escapeHtml(config?.appSubtitle || `100% client-side ${resolveProviderName(config)} workspace`);
 
   topbar.innerHTML = `
     <div class="brand-row">
       <div class="brand-icon" aria-hidden="true">
-        <img src="/static/app/icon.svg?v=11" alt="" width="36" height="36" />
+        <img src="/static/app/icon.svg?v=11" alt="" width="32" height="32" />
       </div>
-      <div class="brand-text">
-        <div class="brand-title-line">
-          <span class="brand-name">${appName}</span>
-          <span class="suite-pill">${suiteName}</span>
-          <span class="privacy-pill" title="100% In-Browser: Files flow directly between ${pName} and your browser RAM. Zero file bytes ever leave your device.">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            100% In-Browser &middot; Zero-PII
-          </span>
-        </div>
-        <div class="brand-sub" id="active-context-label">${appSubtitle}</div>
+      <div class="brand-title-line">
+        <span class="brand-name">${appName}</span>
+        <span class="suite-pill">${suiteName}</span>
+        <span class="privacy-pill" title="100% In-Browser: Files flow directly between ${pName} and your browser RAM. Zero file bytes ever leave your device.">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          100% In-Browser &middot; Zero-PII
+        </span>
       </div>
     </div>
 
     <nav class="nav-tabs" id="main-tabs" aria-label="Workspace navigation">
       <button class="tab-btn active" id="btn-tab-${primaryTab}" type="button">${primaryLabel}</button>
       <button class="tab-btn" id="btn-tab-radar" type="button">ShareRadar <span class="tab-badge-pro">Pro</span></button>
-      <button class="tab-btn" id="btn-tab-picker" type="button" title="Browse the remaining files and folders in the ${pName} folder you opened from">Other Files in Folder</button>
+      <button class="tab-btn" id="btn-tab-picker" type="button" title="Browse files and folders in ${pName}">Browse Files/Folders</button>
     </nav>
 
     <div class="header-actions">
@@ -355,7 +351,7 @@ function ensurePickerTemplate(config) {
   if (!sec || sec.children.length > 0) return;
   const pName = escapeHtml(resolveProviderName(config));
   const subtitle = escapeHtml(
-    config?.pickerSubtitle || `Browse the remaining files and folders in the ${resolveProviderName(config)} folder you opened from.`
+    config?.pickerSubtitle || `Browse files and folders in ${resolveProviderName(config)} — open a subfolder or select an item.`
   );
   sec.innerHTML = `
     <div class="picker-header">
@@ -428,8 +424,8 @@ function ensureSuiteNavVisible(config) {
   const pName = resolveProviderName(config);
   const pickerBtn = document.getElementById("btn-tab-picker");
   if (pickerBtn) {
-    pickerBtn.textContent = "Other Files in Folder";
-    pickerBtn.title = `Browse the remaining files and folders in the ${pName} folder you opened from`;
+    pickerBtn.textContent = "Browse Files/Folders";
+    pickerBtn.title = `Browse files and folders in ${pName}`;
   }
 
   document.getElementById("btn-switch-item")?.remove();
@@ -919,13 +915,11 @@ export function createSuiteController(config = {}) {
 
     if (!client && config?.demoMode) {
       scanner.rootFolderId = targetFolder;
-      el("active-context-label").textContent = "ShareRadar Preview (Demo)";
       el("radar-folder-heading").textContent = "Sharing: Demo Workspace Folder";
       refreshRadarUi();
       return;
     }
 
-    el("active-context-label").textContent = "Folder Sharing Summary";
     el("radar-folder-heading").textContent = "Folder Sharing Summary";
     el("kpi-scan-progress").textContent = "Checking shared links and outside guests...";
     el("radar-tbody").innerHTML =
@@ -938,13 +932,11 @@ export function createSuiteController(config = {}) {
           .then((meta) => {
             if (meta && meta.name) {
               el("radar-folder-heading").textContent = `Sharing: ${meta.name}`;
-              el("active-context-label").textContent = meta.name;
             }
           })
           .catch(() => {});
       } else {
         el("radar-folder-heading").textContent = "Sharing: All Files (Root)";
-        el("active-context-label").textContent = "All Files";
       }
 
       await scanner.scanFolderTree(targetFolder, (scannedCount, findingsLen) => {
@@ -1361,7 +1353,6 @@ if (typeof document !== "undefined") {
     const ctrl = mountSuiteTemplate({
       suiteName: ds.suiteName || "DocWorks",
       appName: ds.appName || "DocWorks App Template",
-      appSubtitle: ds.appSubtitle || "Zero-PII Client-Side Document Workspace",
       providerName: ds.providerName || "Box",
       primaryTab: ds.primaryTab || "workspace",
       primaryTabLabel: ds.primaryTabLabel || "Primary Workspace",

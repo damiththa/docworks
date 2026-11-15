@@ -1,0 +1,6 @@
+SKU,Plan Name,Billing Cycle,Seats,Unit Price,Discount,Line Formula
+SKU-100,"Enterprise Tier, Annual",Annual,65,$195,12%,=D2*E2
+SKU-200,"Compliance Add-On, HIPAA",Annual,65,$45,10%,=D3*E3
+SKU-300,"Dedicated Support SLA",Annual,1,$4200,0%,=D4*E4
+SKU-400,"Zero-Trust Audit Log Export",Annual,1,$1800,0%,=D5*E5
+TOTAL,"Combined Annual Subtotal",Annual,,, ,21600

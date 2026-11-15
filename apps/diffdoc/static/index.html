@@ -6,7 +6,7 @@
   <title>DiffDoc — DocWorks Suite</title>
   <link rel="icon" type="image/svg+xml" href="/static/app/icon.svg?v=11" />
   <link rel="icon" type="image/png" sizes="64x64" href="/static/app/icon_64.png?v=11" />
-  <link rel="stylesheet" href="/static/shared/css/suite-shell.css?v=11" />
+  <link rel="stylesheet" href="/static/shared/css/suite-shell.css?v=13" />
   <link rel="stylesheet" href="/static/app/css/styles.css?v=11" />
   <script defer src="/static/vendor/pdf-lib.min.js?v=11"></script>
   <script defer src="/static/vendor/pdf.min.js?v=11"></script>
@@ -16,27 +16,24 @@
   <header class="topbar">
     <div class="brand-row">
       <div class="brand-icon" aria-hidden="true">
-        <img src="/static/app/icon.svg?v=11" alt="" width="36" height="36" />
+        <img src="/static/app/icon.svg?v=11" alt="" width="32" height="32" />
       </div>
-      <div class="brand-text">
-        <div class="brand-title-line">
-          <span class="brand-name">DiffDoc</span>
-          <span class="suite-pill">DocWorks</span>
-          <span class="privacy-pill" id="header-privacy-pill" title="100% In-Browser: Files are streamed directly between cloud storage and your browser RAM. Zero file bytes are ever stored, cached, or analyzed on external servers.">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            100% In-Browser &middot; Zero-PII
-          </span>
-        </div>
-        <div class="brand-sub" id="active-context-label">Version history &amp; sibling file redlines</div>
+      <div class="brand-title-line">
+        <span class="brand-name">DiffDoc</span>
+        <span class="suite-pill">DocWorks</span>
+        <span class="privacy-pill" id="header-privacy-pill" title="100% In-Browser: Files are streamed directly between cloud storage and your browser RAM. Zero file bytes are ever stored, cached, or analyzed on external servers.">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          100% In-Browser &middot; Zero-PII
+        </span>
       </div>
     </div>
 
     <nav id="main-tabs" class="nav-tabs" aria-label="Workspace navigation">
       <button id="btn-tab-compare" type="button" class="tab-btn active">Compare &amp; Redline</button>
       <button id="btn-tab-radar" type="button" class="tab-btn">ShareRadar <span class="tab-badge-pro">Pro</span></button>
-      <button id="btn-tab-picker" type="button" class="tab-btn" title="Browse the remaining files and folders in the folder you opened from">Other Files in Folder</button>
+      <button id="btn-tab-picker" type="button" class="tab-btn" title="Browse files and folders in Box">Browse Files/Folders</button>
     </nav>
 
     <div class="header-actions">
@@ -319,6 +316,6 @@
 
   <footer class="app-footer"></footer>
 
-  <script type="module" src="/static/app/js/app.js?v=12"></script>
+  <script type="module" src="/static/app/js/app.js?v=13"></script>
 </body>
 </html>

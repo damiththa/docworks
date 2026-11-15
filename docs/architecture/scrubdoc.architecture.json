@@ -173,10 +173,10 @@
       "pos": [304, 122],
       "size": [204, 74],
       "sources": [
-        { "path": "apps/scrubdoc/static/index.html", "line": 1, "end_line": 276, "label": "ScrubDoc workspace & deferred vendor mounts" },
-        { "path": "apps/scrubdoc/static/js/app.js", "line": 137, "end_line": 401, "label": "ScrubDoc bootstrap, quota check & scrubber loader" },
-        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 450, "label": "Canonical suite header, toast, ShareRadar & folder picker" },
-        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1005, "label": "Shared DocWorks suite theme, tables & sticky footer" },
+        { "path": "apps/scrubdoc/static/index.html", "line": 1, "end_line": 273, "label": "ScrubDoc workspace & deferred vendor mounts" },
+        { "path": "apps/scrubdoc/static/js/app.js", "line": 137, "end_line": 400, "label": "ScrubDoc bootstrap, quota check & scrubber loader" },
+        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 446, "label": "Canonical suite header, toast, ShareRadar & folder picker" },
+        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1013, "label": "Shared DocWorks suite theme, tables & sticky footer" },
         { "path": "apps/scrubdoc/static/css/styles.css", "line": 1, "end_line": 564, "label": "ScrubDoc Redactor studio styles" }
       ]
     },
@@ -191,7 +191,7 @@
       "size": [204, 74],
       "sources": [
         { "path": "shared/providers/registry.js", "line": 1, "end_line": 35, "label": "Multi-provider browser adapter lookup" },
-        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 374, "label": "BoxBrowserClient (?access_token 302, 409 retry, ShareRadar)" },
+        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 384, "label": "BoxBrowserClient (?access_token 302, 409 retry, ShareRadar)" },
         { "path": "shared/providers/dropbox/client.js", "line": 1, "end_line": 49, "label": "Dropbox browser adapter scaffold" },
         { "path": "shared/providers/gdrive/client.js", "line": 1, "end_line": 49, "label": "Google Drive browser adapter scaffold" }
       ]
@@ -207,7 +207,7 @@
       "size": [204, 74],
       "sources": [
         { "path": "shared/frontend/js/shareradar_engine.js", "line": 1, "end_line": 367, "label": "Recursive 0-byte audit, +Δ diff & bulk fixes" },
-        { "path": "shared/frontend/suite-template.html", "line": 1, "end_line": 80, "label": "Canonical ShareRadar & picker template DOM" }
+        { "path": "shared/frontend/suite-template.html", "line": 1, "end_line": 79, "label": "Canonical ShareRadar & picker template DOM" }
       ]
     },
     {
@@ -236,7 +236,7 @@
       "size": [206, 74],
       "sources": [
         { "path": "apps/scrubdoc/static/js/redactor_engine.js", "line": 1, "end_line": 705, "label": "Full /Info+XMP wipe, Page 1 render & 250-DPI burn" },
-        { "path": "apps/scrubdoc/static/js/app.js", "line": 649, "end_line": 760, "label": "Sanitized export upload & post-upload quota consumption" }
+        { "path": "apps/scrubdoc/static/js/app.js", "line": 648, "end_line": 770, "label": "Sanitized export upload & post-upload quota consumption" }
       ]
     },
     {

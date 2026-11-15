@@ -14,7 +14,7 @@ import {
   closeOrReturnToProvider,
   initUserBadge,
   createSuiteController,
-} from "/static/shared/js/suite_shell.js?v=11";
+} from "/static/shared/js/suite_shell.js?v=13";
 
 if (window.pdfjsLib) {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdf.worker.min.js?v=11";
@@ -205,7 +205,7 @@ async function initApp() {
     primaryTab: "compare",
     primaryTabLabel: "Compare & Redline",
     pickerSubtitle:
-      "Browse the remaining files and folders in the folder you opened from — compare versions, set Left/Right, or scan sharing.",
+      "Browse files and folders in this folder — compare versions, set Left/Right, or scan sharing.",
     getProviderClient: () => state.providerClient,
     getRadarScanner: () => state.radarScanner,
     getActiveFileId: () => state.rightDesc?.fileId || state.leftDesc?.fileId || null,
@@ -380,7 +380,6 @@ async function loadPrimaryFileContext(fileId) {
     const parentId = meta.parent && meta.parent.id ? String(meta.parent.id) : "0";
     const parentName = (meta.parent && meta.parent.name) || "Parent Folder";
     state.currentFolderId = parentId;
-    el("active-context-label").textContent = meta.name || `${pName} file comparison`;
 
     const versionsResp = await state.providerClient.listFileVersions(fileId);
     const timeline = state.providerClient.buildVersionTimeline(meta, versionsResp);
@@ -466,7 +465,7 @@ async function loadPrimaryFileContext(fileId) {
           : "";
         showEmptyPrompt(
           `${meta.name} has only 1 version (v1) and no sibling files in "${parentName}"`,
-          `Upload a revised v2 in ${pName} or place a second compatible document in the same folder (or open Other Files in Folder above) to run a diff.${restrictionNote}`
+          `Upload a revised v2 in ${pName} or place a second compatible document in the same folder (or open Browse Files/Folders above) to run a diff.${restrictionNote}`
         );
       }
     }

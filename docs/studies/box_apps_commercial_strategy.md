@@ -85,6 +85,8 @@ To maximize adoption while capturing revenue from high-volume power users and co
 | **ShareRadar Subfolder Depth** | 1 folder (up to 25 items) | **Recursive Unlimited Subfolders** | **Recursive Unlimited Subfolders** |
 | **ShareRadar Bulk Remediation** | Manual 1-by-1 | **1-Click Bulk Revoke & Expiry** | **1-Click Bulk Revoke & Expiry** |
 | **ShareRadar CSV Hygiene Export** | No | **Yes** | **Yes** |
+| **Safe Box Hub Publishing & Atomic `_Clean` Swap (`v2025.0`)** | No | **1-Click Create / Clone / Swap in Hub** | **1-Click + Template Deal Rooms** |
+| **HubRadar Audit (External Hub Guests, `+Δ Views`, Raw Files)** | Preview Only | **Full Audit + 1-Click Hub Lockdown** | **Full Audit + 1-Click Hub Lockdown** |
 | **Branding on Saved Copies** | Subtle SafeShare tag | **Zero Branding / Clean** | **Custom Corporate Branding** |
 | **Centralized Admin Billing / SSO** | No | No | **Yes (Box Domain Binding)** |
 
@@ -99,6 +101,7 @@ To maximize adoption while capturing revenue from high-volume power users and co
 | **Cross-Format Diff (`.docx` vs `.pdf`)** | Included | Included | Included |
 | **Spreadsheet Audit (`.xlsx`, `.csv`)** | 1st Worksheet Only | **Multi-Sheet + Formula Overrides** | **Multi-Sheet + Formula Overrides** |
 | **Export `Redline_Report.pdf` to Box** | Watermarked footer | **Clean Executive PDF (No Watermark)** | **Custom Corporate Header & Logo** |
+| **Publish `Redline_Report.pdf` & Hub Changelogs to Box Hubs** | No | **Yes (`POST /2.0/hubs/:id/manage_items`)** | **Yes + Box AI Hub Summary** |
 | **Side-by-Side Synchronized Scroll** | Included | Included | Included |
 | **Centralized Admin Billing / Seats** | No | No | **Yes (Box Domain Binding)** |
 
