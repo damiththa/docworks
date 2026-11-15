@@ -1,7 +1,7 @@
 import { createProviderClient } from "/static/providers/registry.js?v=12";
-import { detectFileFormatFromBytes, runMetadataXray } from "./metadata_xray.js?v=11";
-import { generateAnonymousStem, inspectFilenameForPii } from "./pii_detector.js?v=11";
-import { RedactorWorkspace } from "./redactor_engine.js?v=11";
+import { detectFileFormatFromBytes, runMetadataXray } from "./metadata_xray.js?v=14";
+import { generateAnonymousStem, inspectFilenameForPii } from "./pii_detector.js?v=14";
+import { RedactorWorkspace } from "./redactor_engine.js?v=14";
 import { ShareRadarScanner } from "/static/shared/js/shareradar_engine.js?v=11";
 import {
   el,
@@ -199,7 +199,11 @@ async function bootstrap() {
   el("btn-done-window").addEventListener("click", exitToProvider);
   el("btn-done-after-save").addEventListener("click", exitToProvider);
 
-  state.redactor = new RedactorWorkspace(el("redactor-canvas"), renderRedactorSidebarState);
+  state.redactor = new RedactorWorkspace(
+    el("redactor-canvas"),
+    renderRedactorSidebarState,
+    updateDocxHoverHighlight
+  );
   wireScrubControls();
 
   el("btn-oauth-connect").addEventListener("click", async () => {
@@ -329,6 +333,7 @@ async function openFileInScrubber(fileId) {
   el("xray-details-wrap").classList.add("hidden");
   el("xray-list").innerHTML = "";
   el("pii-checklist").innerHTML = "";
+  el("docx-preview-sections").innerHTML = "";
   state.lastSavedFileId = null;
   state.lastSharedLinkUrl = null;
 
@@ -350,7 +355,10 @@ async function openFileInScrubber(fileId) {
     state.piiCategoryFilter = "all";
     el("canvas-wrapper").classList.toggle("hidden", isDocx);
     el("docx-friendly-card").classList.toggle("hidden", !isDocx);
-    el("draw-helper-tip").classList.toggle("hidden", isDocx);
+    el("draw-helper-tip").classList.remove("hidden");
+    el("draw-helper-tip").textContent = isDocx
+      ? "Click highlighted items below or on the right to black out"
+      : "Click highlighted items or drag anywhere to black out";
     el("pii-section-card").classList.remove("hidden");
 
     const rawStem = meta.name.replace(/\.[^.]+$/, "");
@@ -395,7 +403,104 @@ async function openFileInScrubber(fileId) {
     renderRedactorSidebarState();
   } catch (err) {
     console.error("openFileInScrubber error:", err);
+    el("scrub-workspace").classList.add("hidden");
+    el("scrub-empty-prompt").classList.remove("hidden");
     showToast(err.message || `Unable to open this file from ${state.providerName}.`, "error");
+  }
+}
+
+function updateDocxHoverHighlight(findingId) {
+  const container = el("docx-preview-sections");
+  if (!container) return;
+  container.querySelectorAll(".docx-pii-token").forEach((btn) => {
+    btn.classList.toggle("is-hovered", Boolean(findingId) && btn.dataset.findingId === findingId);
+  });
+}
+
+function appendHighlightedDocxLine(pEl, line, findingsDesc, hoveredId, redactor) {
+  const spans = [];
+  for (const f of findingsDesc) {
+    if (!f.rawValue) continue;
+    let from = 0;
+    while (from <= line.length - f.rawValue.length) {
+      const idx = line.indexOf(f.rawValue, from);
+      if (idx === -1) break;
+      const end = idx + f.rawValue.length;
+      const overlaps = spans.some((s) => Math.max(s.start, idx) < Math.min(s.end, end));
+      if (!overlaps) {
+        spans.push({ start: idx, end, finding: f });
+      }
+      from = end;
+    }
+  }
+  spans.sort((a, b) => a.start - b.start);
+
+  let cursor = 0;
+  for (const sp of spans) {
+    if (sp.start > cursor) {
+      pEl.appendChild(document.createTextNode(line.slice(cursor, sp.start)));
+    }
+    const f = sp.finding;
+    const rawSeg = line.slice(sp.start, sp.end);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.findingId = f.id;
+    btn.className = `docx-pii-token${f.enabled ? " is-redacted" : ""}${
+      hoveredId === f.id ? " is-hovered" : ""
+    }`;
+    btn.setAttribute("aria-pressed", f.enabled ? "true" : "false");
+    btn.title = `${f.label} — ${f.enabled ? "click to restore" : "click to black out"}`;
+    btn.textContent = f.enabled ? "█".repeat(rawSeg.length) : rawSeg;
+    btn.addEventListener("click", () => {
+      f.enabled = !f.enabled;
+      redactor.onStateChange?.();
+    });
+    btn.addEventListener("mouseenter", () => redactor.setHoveredFinding(f.id));
+    btn.addEventListener("mouseleave", () => redactor.setHoveredFinding(null));
+    pEl.appendChild(btn);
+    cursor = sp.end;
+  }
+  if (cursor < line.length) {
+    pEl.appendChild(document.createTextNode(line.slice(cursor)));
+  }
+}
+
+function renderDocxPreview() {
+  const r = state.redactor;
+  const container = el("docx-preview-sections");
+  if (!r || !container || r.format !== "docx") return;
+
+  container.innerHTML = "";
+  const sections = r.docxPreviewSections || [];
+  if (sections.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "docx-empty-note";
+    empty.textContent = "No readable text found inside this Word document.";
+    container.appendChild(empty);
+    return;
+  }
+
+  const findingsDesc = (r.autoFindings || [])
+    .filter((f) => f.rawValue)
+    .slice()
+    .sort((a, b) => b.rawValue.length - a.rawValue.length);
+
+  for (const sec of sections) {
+    const secBlock = document.createElement("div");
+    secBlock.className = "docx-sec-block";
+
+    const label = document.createElement("div");
+    label.className = "docx-sec-label";
+    label.textContent = sec.title;
+    secBlock.appendChild(label);
+
+    for (const line of sec.lines) {
+      const pEl = document.createElement("p");
+      pEl.className = "docx-para";
+      appendHighlightedDocxLine(pEl, line, findingsDesc, r.hoveredFindingId, r);
+      secBlock.appendChild(pEl);
+    }
+    container.appendChild(secBlock);
   }
 }
 
@@ -408,6 +513,10 @@ function checkFilenameWarning() {
 function renderRedactorSidebarState() {
   const r = state.redactor;
   if (!r) return;
+
+  if (r.format === "docx") {
+    renderDocxPreview();
+  }
 
   const showStepper = r.format === "pdf" && r.pageCount > 1;
   el("page-stepper").classList.toggle("hidden", !showStepper);
@@ -524,9 +633,13 @@ function renderRedactorSidebarState() {
     const metaDiv = document.createElement("div");
     metaDiv.className = "pii-item-meta";
     const locLabel = f.isDocxText
-      ? f.occurrences > 1
+      ? f.enabled
+        ? f.occurrences > 1
+          ? `${f.occurrences} matches blacked out`
+          : "Blacked out"
+        : f.occurrences > 1
         ? `${f.occurrences} matches in document`
-        : "In Word text"
+        : "Highlighted in document"
       : r.pageCount > 1
       ? `Page ${f.pageIndex + 1}`
       : f.enabled

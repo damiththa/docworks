@@ -1,5 +1,5 @@
 import { createProviderClient } from "/static/providers/registry.js?v=12";
-import { extractDocumentText, computeTextRedline } from "./text_diff.js?v=11";
+import { extractDocumentText, computeTextRedline } from "./text_diff.js?v=14";
 import { VisualComparator, supportsVisualComparison } from "./visual_diff.js?v=11";
 import { diffSpreadsheets, supportsSpreadsheetComparison } from "./spreadsheet_diff.js?v=11";
 import { generateRedlineReportPdf } from "./report_exporter.js?v=11";

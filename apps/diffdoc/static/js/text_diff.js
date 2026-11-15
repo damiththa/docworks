@@ -12,6 +12,134 @@ function ensurePdfWorker() {
   }
 }
 
+const DOCX_SKIP_TAGS = new Set([
+  "del",
+  "moveFrom",
+  "rPrChange",
+  "pPrChange",
+  "tblPrChange",
+  "trPrChange",
+  "tcPrChange",
+  "sectPrChange",
+  "Fallback",
+]);
+
+function normalizeZipPath(rawPath) {
+  const parts = String(rawPath || "").replace(/\\/g, "/").replace(/^\/+/, "").split("/");
+  const stack = [];
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") stack.pop();
+    else stack.push(part);
+  }
+  return stack.join("/");
+}
+
+async function resolveWordMainPartPath(zip) {
+  if (zip.file("word/document.xml")) return "word/document.xml";
+  const relEntry = zip.file("_rels/.rels");
+  if (!relEntry) return null;
+  const relXml = await relEntry.async("string");
+  const relDoc = new DOMParser().parseFromString(relXml, "application/xml");
+  const all = relDoc.getElementsByTagName("*");
+  for (let i = 0; i < all.length; i++) {
+    if (all[i].localName !== "Relationship") continue;
+    const type = all[i].getAttribute("Type") || "";
+    const target = all[i].getAttribute("Target") || "";
+    if (type.endsWith("/officeDocument") && target) {
+      const normalized = normalizeZipPath(target);
+      if (zip.file(normalized)) return normalized;
+    }
+  }
+  return null;
+}
+
+function collectWordXmlLines(dom) {
+  const lines = [];
+  const allEls = dom.getElementsByTagName("*");
+  let bodyNode = dom.documentElement;
+  for (let i = 0; i < allEls.length; i++) {
+    if (allEls[i].localName === "body") {
+      bodyNode = allEls[i];
+      break;
+    }
+  }
+  if (!bodyNode) return lines;
+
+  const pushLines = (text) => {
+    for (const part of String(text || "").split("\n")) {
+      const trimmed = part.replace(/\s+/g, " ").trim();
+      if (trimmed) lines.push(trimmed);
+    }
+  };
+
+  const extractCellText = (tcEl) => {
+    const pTexts = [];
+    const walkCell = (node) => {
+      for (let child = node.firstChild; child; child = child.nextSibling) {
+        if (child.nodeType !== 1) continue;
+        const ln = child.localName;
+        if (DOCX_SKIP_TAGS.has(ln)) continue;
+        if (ln === "p") {
+          const t = extractWordParagraphText(child).replace(/\s+/g, " ").trim();
+          if (t) pTexts.push(t);
+        } else {
+          walkCell(child);
+        }
+      }
+    };
+    walkCell(tcEl);
+    return pTexts.join(" ");
+  };
+
+  const isInsideSkippedOrTxbx = (el, stopAt) => {
+    for (let cur = el.parentNode; cur && cur !== stopAt; cur = cur.parentNode) {
+      if (DOCX_SKIP_TAGS.has(cur.localName) || cur.localName === "txbxContent") return true;
+    }
+    return false;
+  };
+
+  const visitBlockContainer = (container) => {
+    for (let child = container.firstChild; child; child = child.nextSibling) {
+      if (child.nodeType !== 1) continue;
+      const ln = child.localName;
+      if (DOCX_SKIP_TAGS.has(ln)) continue;
+      if (ln === "p") {
+        pushLines(extractWordParagraphText(child));
+        // Also extract text from any non-skipped nested textboxes (<w:txbxContent><w:p>) inside this paragraph
+        const nestedEls = child.getElementsByTagName("*");
+        for (let i = 0; i < nestedEls.length; i++) {
+          if (nestedEls[i].localName === "txbxContent" && !isInsideSkippedOrTxbx(nestedEls[i], child)) {
+            visitBlockContainer(nestedEls[i]);
+          }
+        }
+      } else if (ln === "tbl") {
+        for (let rChild = child.firstChild; rChild; rChild = rChild.nextSibling) {
+          if (rChild.nodeType !== 1) continue;
+          if (DOCX_SKIP_TAGS.has(rChild.localName)) continue;
+          if (rChild.localName === "tr") {
+            const cells = [];
+            for (let cChild = rChild.firstChild; cChild; cChild = cChild.nextSibling) {
+              if (cChild.nodeType === 1 && cChild.localName === "tc") {
+                const cellStr = extractCellText(cChild);
+                if (cellStr) cells.push(cellStr);
+              }
+            }
+            if (cells.length > 0) {
+              pushLines(cells.join(" | "));
+            }
+          }
+        }
+      } else {
+        visitBlockContainer(child);
+      }
+    }
+  };
+
+  visitBlockContainer(bodyNode);
+  return lines;
+}
+
 /**
  * Extracts normalized readable text lines from `.pdf`, `.docx`, `.json`, `.md`, `.txt`, or `.csv`.
  * Always slices `Uint8Array` before passing to `pdf.js` so the caller's buffer is never detached.
@@ -88,39 +216,41 @@ export async function extractDocumentText(uint8Bytes, ext) {
 
   if (cleanExt === "docx") {
     if (!window.JSZip) throw new Error("Archive engine (JSZip) is not loaded.");
-    const zip = await window.JSZip.loadAsync(uint8Bytes.slice(0));
-    const docEntry = zip.file("word/document.xml");
-    if (!docEntry) {
+    let zip;
+    try {
+      zip = await window.JSZip.loadAsync(uint8Bytes.slice(0));
+    } catch {
+      throw new Error("Unable to read .docx archive. The file may be corrupted or encrypted.");
+    }
+    if (zip.file("EncryptedPackage")) {
+      throw new Error("This .docx file is password-protected or encrypted.");
+    }
+    const mainPath = await resolveWordMainPartPath(zip);
+    if (!mainPath || !zip.file(mainPath)) {
       throw new Error("Invalid .docx file: missing word/document.xml.");
     }
-    const xmlStr = await docEntry.async("string");
-    const dom = new DOMParser().parseFromString(xmlStr, "application/xml");
-    const lines = [];
-    let totalWords = 0;
 
-    const bodyNode = Array.from(dom.getElementsByTagName("*")).find((el) => el.localName === "body") || dom.documentElement;
-    for (const child of Array.from(bodyNode.children || [])) {
-      if (child.localName === "p") {
-        const pText = extractWordParagraphText(child).trim();
-        if (pText) {
-          lines.push(pText);
-          totalWords += pText.split(/\s+/).length;
-        }
-      } else if (child.localName === "tbl") {
-        const trNodes = Array.from(child.getElementsByTagName("*")).filter((el) => el.localName === "tr");
-        for (const tr of trNodes) {
-          const cells = Array.from(tr.children || [])
-            .filter((el) => el.localName === "tc")
-            .map((tc) => extractWordParagraphText(tc).replace(/\s+/g, " ").trim());
-          const rowStr = cells.filter(Boolean).join(" | ");
-          if (rowStr) {
-            lines.push(rowStr);
-            totalWords += rowStr.split(/\s+/).length;
-          }
-        }
-      }
+    const partOrder = (p) => {
+      if (p === mainPath) return 0;
+      if (/^word\/header/i.test(p)) return 1;
+      if (/^word\/footer/i.test(p)) return 2;
+      if (/^word\/footnotes/i.test(p)) return 3;
+      return 4;
+    };
+    const partPaths = Object.keys(zip.files)
+      .filter((name) => name === mainPath || /^word\/(header\d*|footer\d*|footnotes|endnotes)\.xml$/i.test(name))
+      .sort((a, b) => partOrder(a) - partOrder(b) || a.localeCompare(b));
+
+    const parser = new DOMParser();
+    const lines = [];
+    for (const partPath of partPaths) {
+      const xmlStr = await zip.file(partPath).async("string");
+      const dom = parser.parseFromString(xmlStr, "application/xml");
+      if (dom.getElementsByTagName("parsererror").length > 0) continue;
+      lines.push(...collectWordXmlLines(dom));
     }
 
+    const totalWords = lines.reduce((sum, ln) => sum + ln.split(/\s+/).length, 0);
     return {
       text: lines.join("\n"),
       pageCount: null,
@@ -149,19 +279,23 @@ export async function extractDocumentText(uint8Bytes, ext) {
 
 function extractWordParagraphText(rootEl) {
   let out = "";
-  const walker = rootEl.ownerDocument.createTreeWalker(rootEl, NodeFilter.SHOW_ELEMENT);
-  let cur = walker.nextNode();
-  while (cur) {
-    const ln = cur.localName;
-    if (ln === "t") {
-      out += cur.textContent || "";
-    } else if (ln === "tab") {
-      out += "\t";
-    } else if (ln === "br" || ln === "cr") {
-      out += "\n";
+  const walk = (node) => {
+    for (let child = node.firstChild; child; child = child.nextSibling) {
+      if (child.nodeType !== 1) continue;
+      const ln = child.localName;
+      if (DOCX_SKIP_TAGS.has(ln) || ln === "txbxContent") continue;
+      if (ln === "t") {
+        out += child.textContent || "";
+      } else if (ln === "tab") {
+        out += "\t";
+      } else if (ln === "br" || ln === "cr") {
+        out += "\n";
+      } else {
+        walk(child);
+      }
     }
-    cur = walker.nextNode();
-  }
+  };
+  walk(rootEl);
   return out;
 }
 

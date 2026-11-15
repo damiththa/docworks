@@ -129,38 +129,111 @@
 }
 
 .docx-card {
-  max-width: 420px;
-  margin: 48px auto;
+  width: 100%;
+  max-width: 740px;
+  margin: 0 auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 28px 24px;
-  text-align: center;
-  box-shadow: var(--shadow-sm);
+  padding: 20px 24px;
+  text-align: left;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.docx-preview-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
 }
 
 .docx-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 10px;
   background: var(--primary-soft);
   color: var(--primary);
   font-weight: 700;
-  font-size: 13px;
-  margin-bottom: 12px;
+  font-size: 12px;
 }
 
-.docx-card h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
+.docx-banner-copy h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
 }
 
-.docx-card p {
+.docx-banner-copy p {
   margin: 0;
   color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.docx-preview-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.docx-sec-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.docx-sec-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.docx-para {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.docx-pii-token {
+  font: inherit;
+  line-height: inherit;
+  padding: 1px 4px;
+  margin: 0 1px;
+  border-radius: 4px;
+  border: 1.5px solid #d97706;
+  background: rgba(245, 158, 11, 0.22);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.docx-pii-token:hover,
+.docx-pii-token.is-hovered {
+  box-shadow: 0 0 0 2px #0061d5;
+}
+
+.docx-pii-token.is-redacted {
+  background: #0f172a;
+  border-color: #059669;
+  color: #0f172a;
+  letter-spacing: 0;
+}
+
+.docx-empty-note {
+  margin: 0;
+  color: var(--muted);
   font-size: 13px;
 }
 

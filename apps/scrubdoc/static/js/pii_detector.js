@@ -262,7 +262,7 @@ const PATTERNS = [
     priority: 90,
     type: "PHONE",
     label: "Phone / Fax Number",
-    regex: /\b((?:\+?1[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]\d{3}[-.\s]\d{4})\b/g,
+    regex: /(?:^|[^A-Za-z0-9])((?:\+?1[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]\d{3}[-.\s]\d{4})\b/g,
     group: 1,
     validate: () => true,
   },

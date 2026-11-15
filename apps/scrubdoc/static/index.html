@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/app/icon.svg?v=11" />
   <link rel="icon" type="image/png" sizes="64x64" href="/static/app/icon_64.png?v=11" />
   <link rel="stylesheet" href="/static/shared/css/suite-shell.css?v=13" />
-  <link rel="stylesheet" href="/static/app/css/styles.css?v=11" />
+  <link rel="stylesheet" href="/static/app/css/styles.css?v=14" />
   <script defer src="/static/vendor/pdf-lib.min.js?v=11"></script>
   <script defer src="/static/vendor/pdf.min.js?v=11"></script>
   <script defer src="/static/vendor/exifr.full.umd.js?v=11"></script>
@@ -146,13 +146,18 @@
               <canvas id="redactor-canvas"></canvas>
             </div>
 
-            <!-- Friendly Word (.docx) Card instead of raw blank canvas -->
+            <!-- Interactive Word (.docx) Document Preview & Inline Redaction -->
             <div id="docx-friendly-card" class="docx-card hidden">
-              <div class="docx-icon" aria-hidden="true">DOCX</div>
-              <h3>Ready to clean &amp; redact Word document</h3>
-              <p>
-                ScrubDoc automatically removes hidden author names, company properties, and reviewer comments&mdash;and replaces any PII or PHI items you select on the right with permanent solid blocks (<code>&#9608;&#9608;&#9608;&#9608;</code>) while keeping your Word formatting intact.
-              </p>
+              <div class="docx-preview-banner">
+                <div class="docx-icon" aria-hidden="true">DOCX</div>
+                <div class="docx-banner-copy">
+                  <h3>Word Document Preview</h3>
+                  <p>
+                    Hidden author properties, comments, and tracked changes are stripped on save. Click any highlighted item below or on the right to black it out with permanent <code>&#9608;</code> blocks.
+                  </p>
+                </div>
+              </div>
+              <div id="docx-preview-sections" class="docx-preview-sections"></div>
             </div>
           </div>
         </div>
@@ -268,6 +273,6 @@
 
   <footer class="app-footer"></footer>
 
-  <script type="module" src="/static/app/js/app.js?v=13"></script>
+  <script type="module" src="/static/app/js/app.js?v=14"></script>
 </body>
 </html>
