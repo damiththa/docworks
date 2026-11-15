@@ -303,7 +303,7 @@
         { "path": ".github/workflows/ci-verify.yml", "line": 1, "end_line": 78, "label": "Python compileall, shell syntax & JSON static checks" },
         { "path": ".github/workflows/archify.yml", "line": 1, "end_line": 62, "label": "Automated Archify v3.0 verification & SVG/HTML render" },
         { "path": "deploy/setup_gcp_wif.sh", "line": 1, "end_line": 124, "label": "Keyless GitHub OIDC Workload Identity Federation setup" },
-        { "path": "docs/GITHUB_ACTIONS.md", "line": 1, "end_line": 77, "label": "CI/CD architecture & environment isolation guide" },
+        { "path": "docs/GITHUB_ACTIONS.md", "line": 1, "end_line": 79, "label": "CI/CD architecture & environment isolation guide" },
         { "path": "scripts/render_archify.py", "line": 1, "end_line": 822, "label": "Multi-spec Archify source verifier & diagram renderer" }
       ]
     },
@@ -337,7 +337,7 @@
         { "path": "shared/backend/app_factory.py", "line": 270, "end_line": 335, "label": "Provider-parameterized /privacy and /terms renderer" },
         { "path": "shared/backend/legal/privacy.html", "line": 1, "end_line": 51, "label": "Zero-PII privacy policy template" },
         { "path": "shared/backend/legal/terms.html", "line": 1, "end_line": 45, "label": "Terms of service template" },
-        { "path": "docs/GUARDRAILS_AND_ROADMAP.md", "line": 1, "end_line": 62, "label": "Operational Zero-PII & multi-provider expansion rules" }
+        { "path": "docs/GUARDRAILS_AND_ROADMAP.md", "line": 1, "end_line": 79, "label": "Operational Zero-PII, DEV/PROD handoff & expansion rules" }
       ]
     }
   ],

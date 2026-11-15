@@ -41,8 +41,8 @@
 - [ ] **Side-by-Side Folder Tree & Checksum Diff:** Folder Web Integration comparing two directories recursively by relative path and provider content hash (`sha1`) without downloading unchanged files.
 
 ### Commercialization, Billing & Marketplace Launch (`v1.1+`)
-- [ ] **Box App Center Publishing Assets (`ScrubDoc` & `DiffDoc`):** Export crisp `512x512` PNG app icons (from `marketplace/icon.svg`) + 3 live Box UI screenshots per app, toggle `Development` -> `Online`, and submit both PROD apps (`scrubdoc-box`, `diffdoc-box`).
-- [ ] **Zero-PII Pro Tier & Bundle Billing Integration:** Connect Stripe / LemonSqueezy checkout + webhook keyed strictly by anonymous `client_reference_id = user_hash` (never email) updating `plan_bundle`, `plan_scrubdoc`, `plan_diffdoc`, and `radar_plan` inside `entitlements_{provider}/{user_hash}`. Review final free quotas vs beta defaults (`FREE_SCRUB_LIMIT`, `FREE_DIFF_LIMIT`, `FREE_RADAR_FIX_LIMIT`).
+- [ ] **Box App Center Publishing Assets (`ScrubDoc` & `DiffDoc`):** Upload the pre-verified square `512x512` RGB PNG icons [`apps/scrubdoc/marketplace/icon_square_512.png`](../apps/scrubdoc/marketplace/icon_square_512.png) and [`apps/diffdoc/marketplace/icon_square_512.png`](../apps/diffdoc/marketplace/icon_square_512.png) (`rx=0` square corners — Box rounds automatically, `>= 50px` edge padding, zero text; never upload rounded-corner `icon_512.png`) + 3 live Box UI screenshots per app, toggle `Development` -> `Online`, and submit both PROD apps (`scrubdoc-box`, `diffdoc-box`). *(Note: unpublished DEV apps may display Box's generic extension icon in Box context menus until submitted/published on PROD.)*
+- [ ] **Zero-PII Pro Tier & Bundle Billing Integration:** Connect Stripe / LemonSqueezy checkout + webhook keyed strictly by anonymous `client_reference_id = user_hash` (never email) updating `plan_bundle`, `plan_scrubdoc`, `plan_diffdoc`, and `radar_plan` inside `entitlements_{provider}/{user_hash}`. Beta free quotas are currently `25` scrubs / `5` diffs / `25` ShareRadar fixes per UTC month (`FREE_SCRUB_LIMIT`, `FREE_DIFF_LIMIT`, `FREE_RADAR_FIX_LIMIT`).
 
 ---
 
@@ -60,3 +60,20 @@ Both `shared/backend/providers.py` and `shared/providers/{dropbox,gdrive}/client
   2. Implement `gdrive_oauth_exchange` and OpenID `sub` lookup in `shared/backend/providers.py` (`implemented=True`).
   3. Implement `GoogleDriveProviderClient` methods respecting Drive capability constraints (`supports_link_expiry=False`, `supports_link_password=False`, permission-level `anyone` with `allowFileDiscovery: false`). `suite_shell.js` automatically hides unsupported ShareRadar actions via `capabilities`.
   4. Run `./deploy/setup_gcp_prod.sh --providers box,dropbox,gdrive`, populate `GDRIVE_*` DEV + PROD secrets, and add `"gdrive"` to `.github/deploy-config.json` (`active_providers`).
+
+---
+
+## 4. Current Environment State & PROD Handoff (2026-11-15)
+
+- **Single Canonical Workspace & Repo:** `/Users/madushan/GitStuff/docworks` ↔ `https://github.com/damiththa/docworks` (`main` & `dev` synced). All legacy `safeshare` / `boxdiff` resources (GCP project `safeshare-box` `#902354967061`, GitHub repo `damiththa/safeShare`, `/Users/madushan/GitStuff/safeshare-box`, and old SafeShare/BoxDiff Box apps) were retired cleanly. Zero local `.env` files exist.
+- **LIVE DEV (`docworks-514722` / `us-central1`):**
+  - `scrubdoc-box-dev`: `https://scrubdoc-box-dev-kg2pp53kda-uc.a.run.app` (`BOX_SCRUBDOC_*_DEV`, `HMAC_PEPPER_BOX_DEV`, Firestore `entitlements_box_dev`) paired with Box Custom App **ScrubDoc (DEV)**.
+  - `diffdoc-box-dev`: `https://diffdoc-box-dev-kg2pp53kda-uc.a.run.app` (`BOX_DIFFDOC_*_DEV`, `HMAC_PEPPER_BOX_DEV`, Firestore `entitlements_box_dev`) paired with Box Custom App **DiffDoc (DEV)**.
+- **PROD Hold & Box Secret Warning (`prod.auto_deploy_on_push: false`):**
+  - Temporary Box PROD apps were deleted during DEV testing so only DEV apps appear in Box right now.
+  - Because of that, the 4 PROD Secret Manager containers in `docworks-514722` (`BOX_SCRUBDOC_CLIENT_ID`, `BOX_SCRUBDOC_CLIENT_SECRET`, `BOX_DIFFDOC_CLIENT_ID`, `BOX_DIFFDOC_CLIENT_SECRET`) currently hold **stale credentials from deleted Box apps** (`HMAC_PEPPER_BOX` `v1` stays valid).
+  - **Before deploying PROD (after DEV Box testing passes and owner approves):**
+    1. Recreate **ScrubDoc (PROD)** & **DiffDoc (PROD)** in Box Developer Console (upload `icon_square_512.png`).
+    2. Add new versions (`gcloud secrets versions add ...`) for those 4 PROD Secret Manager secrets in `docworks-514722`.
+    3. Flip `prod.auto_deploy_on_push: true` in `.github/deploy-config.json` (or run `workflow_dispatch` on `main`) to deploy `scrubdoc-box` and `diffdoc-box` (default `.run.app` URLs, `SUPPORT_EMAIL=""`, `25`/`5`/`25` quotas).
+    4. Configure each new PROD Box app with the live `.run.app` URLs per [`apps/scrubdoc/marketplace/listing_copy.md`](../apps/scrubdoc/marketplace/listing_copy.md) and [`apps/diffdoc/marketplace/listing_copy.md`](../apps/diffdoc/marketplace/listing_copy.md).

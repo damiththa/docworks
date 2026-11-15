@@ -312,7 +312,7 @@
         { "path": ".github/workflows/archify.yml", "line": 1, "end_line": 62, "label": "Cloud Archify v3.0 validation & render CI" },
         { "path": ".github/workflows/ci-verify.yml", "line": 1, "end_line": 78, "label": "Static syntax & asset checks" },
         { "path": "deploy/setup_gcp_wif.sh", "line": 1, "end_line": 124, "label": "Keyless OIDC Workload Identity setup" },
-        { "path": "docs/GITHUB_ACTIONS.md", "line": 1, "end_line": 77, "label": "CI/CD & multi-environment documentation" }
+        { "path": "docs/GITHUB_ACTIONS.md", "line": 1, "end_line": 79, "label": "CI/CD & multi-environment documentation" }
       ]
     },
     {
