@@ -5,15 +5,15 @@ steps:
       - "-f"
       - "apps/${_APP_ID}/Dockerfile"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_APP_ID}-${_PROVIDER_ID}:${_TAG}"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${_TAG}"
       - "."
 
 images:
-  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_APP_ID}-${_PROVIDER_ID}:${_TAG}"
+  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${_TAG}"
 
 substitutions:
+  _SERVICE_NAME: "scrubdoc-box"
   _APP_ID: "scrubdoc"
-  _PROVIDER_ID: "box"
   _REGION: "us-central1"
   _AR_REPO: "docworks-apps"
   _TAG: "latest"

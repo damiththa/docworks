@@ -151,18 +151,15 @@ jobs:
           include_matrix = [{"app": a, "provider": p} for p in providers for a in apps] if should_deploy else []
           matrix_json = json.dumps({"include": include_matrix}, separators=(",", ":"))
 
-          if target_env == "prod":
-              project_id = "docworks-514722"
-              wif_provider = "projects/746704433311/locations/global/workloadIdentityPools/github-actions/providers/github"
-              deployer_sa = "github-deployer@docworks-514722.iam.gserviceaccount.com"
-              runtime_sa = "docworks-prod-runner@docworks-514722.iam.gserviceaccount.com"
-              ar_repo = "docworks-apps"
-          else:
-              project_id = "safeshare-box"
-              wif_provider = "projects/902354967061/locations/global/workloadIdentityPools/github-actions/providers/github"
-              deployer_sa = "github-deployer@safeshare-box.iam.gserviceaccount.com"
-              runtime_sa = "902354967061-compute@developer.gserviceaccount.com"
-              ar_repo = "cloud-run-source-deploy"
+          project_id = "docworks-514722"
+          wif_provider = "projects/746704433311/locations/global/workloadIdentityPools/github-actions/providers/github"
+          deployer_sa = "github-deployer@docworks-514722.iam.gserviceaccount.com"
+          runtime_sa = (
+              "docworks-prod-runner@docworks-514722.iam.gserviceaccount.com"
+              if target_env == "prod"
+              else "docworks-dev-runner@docworks-514722.iam.gserviceaccount.com"
+          )
+          ar_repo = "docworks-apps"
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
               fh.write(f"should_deploy={'true' if should_deploy else 'false'}\n")
@@ -224,28 +221,23 @@ jobs:
           APP_UPPER="$(echo "${APP_ID}" | tr '[:lower:]' '[:upper:]')"
           PROV_UPPER="$(echo "${PROVIDER_ID}" | tr '[:lower:]' '[:upper:]')"
 
-          # Preserve existing DEV Cloud Run URLs & Secret Manager bindings for Box.
-          if [[ "${ENV_NAME}" == "dev" && "${PROVIDER_ID}" == "box" ]]; then
-            if [[ "${APP_ID}" == "scrubdoc" ]]; then
-              SERVICE_NAME="safeshare"
-              SECRET_CLIENT_ID="BOX_CLIENT_ID"
-              SECRET_CLIENT_SECRET="BOX_CLIENT_SECRET"
-            else
-              SERVICE_NAME="boxdiff"
-              SECRET_CLIENT_ID="BOXDIFF_CLIENT_ID"
-              SECRET_CLIENT_SECRET="BOXDIFF_CLIENT_SECRET"
-            fi
-            SECRET_PEPPER="HMAC_PEPPER"
+          if [[ "${ENV_NAME}" == "dev" ]]; then
+            SERVICE_NAME="${APP_ID}-${PROVIDER_ID}-dev"
+            SECRET_CLIENT_ID="${PROV_UPPER}_${APP_UPPER}_CLIENT_ID_DEV"
+            SECRET_CLIENT_SECRET="${PROV_UPPER}_${APP_UPPER}_CLIENT_SECRET_DEV"
+            SECRET_PEPPER="HMAC_PEPPER_${PROV_UPPER}_DEV"
+            COLLECTION="entitlements_${PROVIDER_ID}_dev"
             FREE_SCRUB="${VAR_FREE_SCRUB_LIMIT:-25}"
             FREE_DIFF="${VAR_FREE_DIFF_LIMIT:-5}"
             FREE_RADAR="${VAR_FREE_RADAR_FIX_LIMIT:-25}"
-            ENV_VARS="APP_ID=${APP_ID},STORAGE_PROVIDER=${PROVIDER_ID},GCP_PROJECT_ID=${PROJECT_ID},USE_FIRESTORE=true,FIRESTORE_COLLECTION=entitlements_${PROVIDER_ID},FREE_SCRUB_LIMIT=${FREE_SCRUB},FREE_DIFF_LIMIT=${FREE_DIFF},FREE_RADAR_FIX_LIMIT=${FREE_RADAR}"
+            ENV_VARS="APP_ID=${APP_ID},STORAGE_PROVIDER=${PROVIDER_ID},GCP_PROJECT_ID=${PROJECT_ID},USE_FIRESTORE=true,FIRESTORE_COLLECTION=${COLLECTION},FREE_SCRUB_LIMIT=${FREE_SCRUB},FREE_DIFF_LIMIT=${FREE_DIFF},FREE_RADAR_FIX_LIMIT=${FREE_RADAR}"
           else
             SERVICE_NAME="${APP_ID}-${PROVIDER_ID}"
             SECRET_CLIENT_ID="${PROV_UPPER}_${APP_UPPER}_CLIENT_ID"
             SECRET_CLIENT_SECRET="${PROV_UPPER}_${APP_UPPER}_CLIENT_SECRET"
             SECRET_PEPPER="HMAC_PEPPER_${PROV_UPPER}"
-            ENV_VARS="APP_ID=${APP_ID},STORAGE_PROVIDER=${PROVIDER_ID},GCP_PROJECT_ID=${PROJECT_ID},USE_FIRESTORE=true,FIRESTORE_COLLECTION=entitlements_${PROVIDER_ID}"
+            COLLECTION="entitlements_${PROVIDER_ID}"
+            ENV_VARS="APP_ID=${APP_ID},STORAGE_PROVIDER=${PROVIDER_ID},GCP_PROJECT_ID=${PROJECT_ID},USE_FIRESTORE=true,FIRESTORE_COLLECTION=${COLLECTION}"
             if [[ -n "${VAR_FREE_SCRUB_LIMIT}" ]]; then
               ENV_VARS="${ENV_VARS},FREE_SCRUB_LIMIT=${VAR_FREE_SCRUB_LIMIT}"
             fi

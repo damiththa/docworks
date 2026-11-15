@@ -1,6 +1,9 @@
 # ScrubDoc — Box App Center Configuration & Store Copy (DocWorks Suite)
 
-> Replace `<SCRUBDOC_PROD_ORIGIN>` with your final Cloud Run or custom domain origin after PROD deployment (e.g. `https://scrubdoc.<your-domain>` or the `.run.app` origin).
+> Create **two** separate Box Custom Apps in Box Developer Console:
+> 1. **ScrubDoc (DEV)** -> point Redirect URI & CORS to your `<SCRUBDOC_DEV_ORIGIN>` (`scrubdoc-box-dev`) and save credentials in Secret Manager (`BOX_SCRUBDOC_CLIENT_ID_DEV`, `BOX_SCRUBDOC_CLIENT_SECRET_DEV` in `docworks-514722`).
+> 2. **ScrubDoc (PROD)** -> point Redirect URI & CORS to your `<SCRUBDOC_PROD_ORIGIN>` (`scrubdoc-box`) and save credentials in Secret Manager (`BOX_SCRUBDOC_CLIENT_ID`, `BOX_SCRUBDOC_CLIENT_SECRET` in `docworks-514722`).
+> Keep Section 3 (Box App Center Publishing) for the **PROD** app only.
 
 ---
 

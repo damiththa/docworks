@@ -65,9 +65,8 @@ def load_settings(default_app_id: str = "scrubdoc") -> Settings:
     p_upper = provider_id.upper()
     a_upper = app_id.upper()
 
-    # Supports canonical Cloud Run Secret Manager bindings (`PROVIDER_CLIENT_ID`)
-    # as well as provider+app explicit keys (`BOX_SCRUBDOC_CLIENT_ID`, etc.)
-    # and legacy DEV fallbacks during transition.
+    # Uses canonical Cloud Run Secret Manager bindings (`PROVIDER_CLIENT_ID`)
+    # with explicit provider+app fallbacks (`BOX_SCRUBDOC_CLIENT_ID`, etc.).
     client_id_candidates = [
         "PROVIDER_CLIENT_ID",
         f"{p_upper}_{a_upper}_CLIENT_ID",
@@ -76,13 +75,6 @@ def load_settings(default_app_id: str = "scrubdoc") -> Settings:
         "PROVIDER_CLIENT_SECRET",
         f"{p_upper}_{a_upper}_CLIENT_SECRET",
     ]
-    if provider_id == "box":
-        if app_id == "diffdoc":
-            client_id_candidates.extend(["BOXDIFF_CLIENT_ID", "BOX_CLIENT_ID"])
-            client_secret_candidates.extend(["BOXDIFF_CLIENT_SECRET", "BOX_CLIENT_SECRET"])
-        else:
-            client_id_candidates.append("BOX_CLIENT_ID")
-            client_secret_candidates.append("BOX_CLIENT_SECRET")
 
     return Settings(
         suite_name="DocWorks",

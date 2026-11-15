@@ -2,15 +2,13 @@
 set -euo pipefail
 
 # Idempotent setup of Keyless GitHub Actions OIDC (Workload Identity Federation)
-# on a DocWorks GCP project (`docworks-514722` for PROD or `safeshare-box` for DEV).
+# on DocWorks' single GCP project (`docworks-514722`) covering both DEV and PROD runtimes.
 #
 # Usage:
-#   ./deploy/setup_gcp_wif.sh --project docworks-514722 --runtime-sa docworks-prod-runner@docworks-514722.iam.gserviceaccount.com
-#   ./deploy/setup_gcp_wif.sh --project safeshare-box --runtime-sa <dev-runtime-sa>
+#   ./deploy/setup_gcp_wif.sh --project docworks-514722
 
 PROJECT_ID="${PROJECT_ID:-docworks-514722}"
 GITHUB_REPO="${GITHUB_REPO:-damiththa/docworks}"
-RUNTIME_SA=""
 POOL_ID="github-actions"
 PROVIDER_ID="github"
 DEPLOYER_SA_NAME="github-deployer"
@@ -25,10 +23,6 @@ while [[ $# -gt 0 ]]; do
       GITHUB_REPO="${2:-damiththa/docworks}"
       shift 2
       ;;
-    --runtime-sa)
-      RUNTIME_SA="${2:-}"
-      shift 2
-      ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 1
@@ -38,13 +32,6 @@ done
 
 PROJECT_NUMBER="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
 DEPLOYER_SA_EMAIL="${DEPLOYER_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
-if [[ -z "${RUNTIME_SA}" ]]; then
-  if [[ "${PROJECT_ID}" == "docworks-514722" ]]; then
-    RUNTIME_SA="docworks-prod-runner@${PROJECT_ID}.iam.gserviceaccount.com"
-  else
-    RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
-  fi
-fi
 
 retry_cmd() {
   local attempt=1
@@ -70,7 +57,7 @@ if ! gcloud iam service-accounts describe "${DEPLOYER_SA_EMAIL}" --project="${PR
   gcloud iam service-accounts create "${DEPLOYER_SA_NAME}" \
     --project="${PROJECT_ID}" \
     --display-name="GitHub Actions Deployer" \
-    --description="Keyless OIDC deployer for DocWorks CI/CD" \
+    --description="Keyless OIDC deployer for DocWorks CI/CD (DEV & PROD)" \
     --quiet
   sleep 8
 fi
@@ -84,13 +71,18 @@ for role in roles/artifactregistry.writer roles/run.admin roles/secretmanager.vi
     --quiet >/dev/null
 done
 
-echo "==> Scoping ServiceAccountUser strictly on runtime SA ${RUNTIME_SA}..."
-retry_cmd gcloud iam service-accounts add-iam-policy-binding "${RUNTIME_SA}" \
-  --project="${PROJECT_ID}" \
-  --member="serviceAccount:${DEPLOYER_SA_EMAIL}" \
-  --role="roles/iam.serviceAccountUser" \
-  --condition=None \
-  --quiet >/dev/null
+for runtime_name in docworks-prod-runner docworks-dev-runner; do
+  runtime_sa="${runtime_name}@${PROJECT_ID}.iam.gserviceaccount.com"
+  if gcloud iam service-accounts describe "${runtime_sa}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+    echo "==> Scoping ServiceAccountUser strictly on ${runtime_sa}..."
+    retry_cmd gcloud iam service-accounts add-iam-policy-binding "${runtime_sa}" \
+      --project="${PROJECT_ID}" \
+      --member="serviceAccount:${DEPLOYER_SA_EMAIL}" \
+      --role="roles/iam.serviceAccountUser" \
+      --condition=None \
+      --quiet >/dev/null
+  fi
+done
 
 echo "==> Ensuring Workload Identity Pool '${POOL_ID}' exists..."
 if ! gcloud iam workload-identity-pools describe "${POOL_ID}" --project="${PROJECT_ID}" --location="global" >/dev/null 2>&1; then

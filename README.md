@@ -31,11 +31,13 @@ docworks/
 └── samples/              # Reference test files
 ```
 
-## Branching, CI/CD & Environment Workflow
+## Branching, CI/CD & Single-Project GCP Layout (`docworks-514722`)
 
-- **GitHub Actions CI/CD (Keyless OIDC / WIF):** See [docs/GITHUB_ACTIONS.md](docs/GITHUB_ACTIONS.md) and workflows under `.github/workflows/` (`ci-verify.yml` for static verification, `deploy.yml` for gated DEV/PROD Cloud Run deployments provisioned via `deploy/setup_gcp_wif.sh`).
-- **`dev` branch -> DEV GCP (`safeshare-box` / `#902354967061`):** Preserves existing DEV service names (`safeshare` and `boxdiff`) and URLs so DEV Box Developer Console credentials stay valid during iteration. Note: zero local code tests are run; verification happens via GitHub Actions, Cloud Run builds, and remote `/health` checks.
-- **`main` branch -> PROD GCP (`docworks-514722` / `#746704433311`):** Single GCP project hosting both `scrubdoc-<provider>` and `diffdoc-<provider>` on Cloud Run (`us-central1`) sharing unified Firestore `entitlements_{provider}` documents and least-privilege runtime Service Account `docworks-prod-runner@docworks-514722.iam.gserviceaccount.com`.
+- **GitHub Actions CI/CD (Keyless OIDC / WIF):** See [docs/GITHUB_ACTIONS.md](docs/GITHUB_ACTIONS.md) and workflows under `.github/workflows/` (`ci-verify.yml` for static verification, `deploy.yml` for multi-provider DEV/PROD Cloud Run deployments configured via `.github/deploy-config.json`).
+- **Single GCP Project (`docworks-514722` / `#746704433311`) Hosting Both DEV & PROD:**
+  - **`dev` branch -> DEV:** Deploys `scrubdoc-<provider>-dev` & `diffdoc-<provider>-dev` using runtime SA `docworks-dev-runner`, isolated `*_DEV` Secret Manager keys, and Firestore `entitlements_{provider}_dev`.
+  - **`main` branch -> PROD:** Deploys `scrubdoc-<provider>` & `diffdoc-<provider>` using runtime SA `docworks-prod-runner`, PROD Secret Manager keys, and Firestore `entitlements_{provider}` (shared `ScrubDoc + DiffDoc` bundle state per user & provider).
+  - Note: Zero local code tests are run; build/health verification happens via GitHub Actions, Cloud Build, and remote `/health` checks.
 
 ## Health & Verification Endpoints
 

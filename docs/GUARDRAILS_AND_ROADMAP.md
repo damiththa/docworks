@@ -1,29 +1,62 @@
-# DocWorks Guardrails & Multi-Provider Roadmap
+# DocWorks Guardrails, Consolidated Roadmap & Multi-Provider Plan
 
-## 1. Non-Negotiable Engineering Guardrails
+> **Single Source of Truth:** Consolidates all mandatory security guardrails, commercial notes, and `v1.1+` product enhancements across both **ScrubDoc** and **DiffDoc** inside `damiththa/docworks` and GCP project `docworks-514722`.
 
-- **Zero-PII Enforcement:** Never accept uploaded user document bytes, filenames, OAuth access/refresh tokens, emails, or Box/Dropbox/Drive IDs inside backend request logs or Firestore documents.
-- **Static Browser-Only Dependencies:** Never load runtime `<script>` or CSS assets from third-party CDNs; always vendor pinned versions into `/app/vendor` inside Dockerfiles and enforce strict CSP headers via `shared/backend/csp.py`.
-- **Single-Action Suite Navigation:** Keep `#main-tabs` unified with three concise views (`<Primary Tool> | ShareRadar Pro | Other Files in Folder`), never duplicating redundant file-switch buttons.
-- **No Unapproved PROD Deployments & No Local Testing:** Validate builds strictly through Cloud Build + Cloud Run and remote `/health` checks upon explicit owner approval.
+---
 
-## 2. Multi-Provider Expansion Checklist (`Dropbox` & `Google Drive`)
+## 1. Non-Negotiable Operational & Security Guardrails
 
-Both `shared/backend/providers.py` and `shared/providers/{dropbox,gdrive}/client.js` already establish the interface contract and capability flags:
+- **Always Check With Owner Before Every Deployment:** Confirm explicitly with the repository owner before triggering any live Cloud Run deployment (`workflow_dispatch`, flipping `auto_deploy_on_push: true`, merging a deploy PR to `main`, or running `deploy/deploy_app.sh --confirm`).
+- **Zero Local Code Testing / Zero Local Secret Storage:** Never run local Python servers, virtual environments, npm/Node installs, or local Docker tests. Container builds execute remotely in GitHub Actions / GCP Cloud Build and verify via remote `/health` checks. Zero secrets are stored locally or committed to Git.
+- **Zero-PII Cloud Boundary:**
+  - Zero uploaded user file bytes, filenames, folder paths, Shared Link URLs, emails, display names, or OAuth refresh/access tokens ever touch GCP logs or Firestore (`uvicorn --no-access-log`).
+  - `/api/oauth/exchange` fetches **strictly** numeric/opaque provider user IDs (never name or email), computes `HMAC_SHA256(HMAC_PEPPER, "docworks:v1:{provider}_user:{id}")`, discards `refresh_token`, and returns the volatile `access_token` solely to browser RAM.
+  - Firestore stores strictly anonymous usage counters and plan booleans (`plan_bundle`, `plan_scrubdoc`, `plan_diffdoc`, `radar_plan`, `scrub_used`, `diffs_used`, `radar_fixes_used`, `period`) inside `entitlements_{provider}` (PROD) or `entitlements_{provider}_dev` (DEV).
+- **Zero Third-Party Runtime CDNs & Permissive Licensing Only:**
+  - `pdf-lib@1.17.1` (`MIT`), `pdfjs-dist@3.11.174` (`Apache-2.0`), `exifr@7.1.3` (`MIT`), `jszip@3.10.1` (`MIT`), and lazy-loaded `tesseract.js@5.1.1` (`Apache-2.0`) are vendored at image build time (`/app/vendor` -> `/static/vendor/`).
+  - Parses `.xlsx` OpenXML worksheets (`<f>` formulas + `<v>` values) directly via `JSZip` + browser `DOMParser`, avoiding `xlsx` (`CVE-2023-30533`) and strictly avoiding `AGPL-3.0` dependencies (such as `MuPDF` / `PyMuPDF`).
+  - `shared/backend/csp.py` locks `script-src 'self' 'wasm-unsafe-eval'`, `connect-src`, and `frame-ancestors` strictly to the active provider.
+- **Anti-Version-History Leak (`_Clean` as `v1` Default):**
+  - Sanitized/redacted deliverables default to uploading a **brand-new `v1` file (`_Clean`)** into the parent folder so collaborators with Editor rights cannot revert or download unredacted `v1` bytes from provider version history (with optional explicit overwrite confirmation when requested).
+- **Single-Action Suite Navigation:**
+  - Keep `#main-tabs` unified across both apps with three views: `<Primary Tool> | ShareRadar Pro | Other Files in Folder`, never duplicating redundant file-switch buttons.
+- **Support Contact Policy:**
+  - `SUPPORT_EMAIL` defaults to `""` so `/privacy` and `/terms` expose zero email addresses publicly by default; `box.developer@mdms.anonaddy.me` is reserved solely if required on marketplace submission forms or when `SUPPORT_EMAIL` is intentionally enabled at deploy time.
+
+---
+
+## 2. `v1.1+` Consolidated Enhancement Backlog
+
+### ScrubDoc Enhancements (`apps/scrubdoc`)
+- [ ] **Native `.boxnote` Scrubbing & Clean PDF Export:** Parse `.boxnote` ProseMirror JSON in browser RAM, expose embedded collaborator/revision metadata in Privacy X-Ray, run Auto-PII redaction, and render a clean `_Clean.pdf` via `pdf-lib` back to storage.
+- [ ] **Visual Canvas Redaction for Native & Uploaded Office Files (`.docx`, `.pptx`, `.xlsx`):** Leverage Box `[pdf]` Representations API (`X-Rep-Hints: [pdf]`) in-browser so Word/Excel/PowerPoint files support full pixel/text coordinate blackouts exported as byte-flattened 250-DPI `_Clean.pdf`.
+- [ ] **Tier 3 Opt-In In-Browser AI NER (`ONNX NER`):** Optional quantized browser model to detect unlabeled person, organization, and clinic names in free-form paragraphs beyond regex patterns.
+- [ ] **Batch Folder Scrub & Redact:** Clean hidden metadata and apply Auto-PII redaction across multiple files in a folder in one pass.
+- [ ] **Popup vs. Separate Tab Tuning & OCR UX Monitoring:** Monitor lazy-loaded Wasm OCR (`ocr_engine.js`) speed on multi-page scans and tune popup/new-tab integration launch settings during Box review.
+
+### DiffDoc Enhancements (`apps/diffdoc`)
+- [ ] **Opt-In Vertex AI Gemini Flash "Executive Change Brief" (Pro):** Keeping `v1` 100% browser-only, optionally allow user-initiated `/api/ai/executive-brief` sending strictly the compact diff hunk delta (never raw files) to GCP Vertex AI (`gemini-2.5-flash`) under zero-data-retention terms.
+- [ ] **Native Office & Presentation Visual Diffs (`.pptx`, `.docx`, `.xlsx`, `.boxnote`):** Use `[pdf]` Representations API so slide decks and rich Office layouts render directly inside `VisualComparator` (`Curtain Slider` + `Crimson Pixel Delta`), plus `.boxnote` JSON redlining.
+- [ ] **In-Browser Wasm OCR for Scanned Contract Redlines (`Tesseract.js`):** Add opt-in OCR when comparing scanned PDFs without text layers so word-level text redlines & `$ / % / Date` callouts work on scans too.
+- [ ] **Side-by-Side Folder Tree & Checksum Diff:** Folder Web Integration comparing two directories recursively by relative path and provider content hash (`sha1`) without downloading unchanged files.
+
+### Commercialization, Billing & Marketplace Launch (`v1.1+`)
+- [ ] **Box App Center Publishing Assets (`ScrubDoc` & `DiffDoc`):** Export crisp `512x512` PNG app icons (from `marketplace/icon.svg`) + 3 live Box UI screenshots per app, toggle `Development` -> `Online`, and submit both PROD apps (`scrubdoc-box`, `diffdoc-box`).
+- [ ] **Zero-PII Pro Tier & Bundle Billing Integration:** Connect Stripe / LemonSqueezy checkout + webhook keyed strictly by anonymous `client_reference_id = user_hash` (never email) updating `plan_bundle`, `plan_scrubdoc`, `plan_diffdoc`, and `radar_plan` inside `entitlements_{provider}/{user_hash}`. Review final free quotas vs beta defaults (`FREE_SCRUB_LIMIT`, `FREE_DIFF_LIMIT`, `FREE_RADAR_FIX_LIMIT`).
+
+---
+
+## 3. Multi-Provider Expansion Checklist (`Dropbox` & `Google Drive`)
+
+Both `shared/backend/providers.py` and `shared/providers/{dropbox,gdrive}/client.js` establish the adapter contract and capability flags inside the single `docworks-514722` project:
 
 - **Dropbox (`STORAGE_PROVIDER=dropbox`):**
-  1. Register PKCE/OAuth Redirect URI `<ORIGIN>/callback` and allowed CORS origin in Dropbox App Console.
+  1. Register DEV and PROD apps + PKCE/OAuth Redirect URI `<ORIGIN>/callback` and allowed CORS origins in Dropbox App Console.
   2. Implement `dropbox_oauth_exchange` and account ID lookup (`/2/users/get_current_account`) in `shared/backend/providers.py` (`implemented=True`).
   3. Implement `DropboxProviderClient` methods (`downloadFileBytes`, `listFolderPage`, `listFileVersions` via `/2/files/list_revisions`, `uploadNewFile`, `updateSharedLinkSettings`, `removeCollaboration`) respecting capability flags (`supports_version_history=True`, `supports_link_expiry=True`).
-  4. Provision secrets with `./deploy/setup_gcp_prod.sh --providers box,dropbox` (creates `HMAC_PEPPER_DROPBOX`, `DROPBOX_SCRUBDOC_CLIENT_*`, `DROPBOX_DIFFDOC_CLIENT_*`), populate the Dropbox OAuth credentials, and add `"dropbox"` to `.github/deploy-config.json` (`active_providers`) so CI/CD automatically deploys `scrubdoc-dropbox` / `diffdoc-dropbox` in `docworks-514722` using isolated Firestore collection `entitlements_dropbox`.
-
+  4. Run `./deploy/setup_gcp_prod.sh --providers box,dropbox` (provisions both DEV `*_DEV` and PROD secrets in `docworks-514722`), populate credentials, and add `"dropbox"` to `.github/deploy-config.json` (`active_providers`).
 - **Google Drive (`STORAGE_PROVIDER=gdrive`):**
-  1. Register OAuth Redirect URI `<ORIGIN>/callback` and restricted Drive scopes in Google Cloud Console (start with `drive.file` + `openid` to keep OAuth review streamlined).
-  2. Implement `gdrive_oauth_exchange` and Drive `about.get` user ID lookup in `shared/backend/providers.py` (`implemented=True`) or reuse OpenID `sub`.
-  3. Implement `GoogleDriveProviderClient` methods respecting Drive capability constraints (`supports_link_expiry=False`, `supports_link_password=False`, permission-level `anyone` with `allowFileDiscovery: false`). Note that `suite_shell.js` automatically hides unsupported ShareRadar bulk actions via `capabilities`.
-  4. Provision secrets with `./deploy/setup_gcp_prod.sh --providers box,dropbox,gdrive`, populate `GDRIVE_SCRUBDOC_CLIENT_*` / `GDRIVE_DIFFDOC_CLIENT_*`, and add `"gdrive"` to `.github/deploy-config.json` (`active_providers`).
-
-## 3. Commercial / Pro Plan Cutover Notes
-
-- Firestore schema `entitlements_{provider}/{user_hash}` is already bundle-ready (`plan_bundle`, `plan_scrubdoc`, `plan_diffdoc`).
-- When payment checkout is introduced (e.g., Stripe or LemonSqueezy), pass `user_hash` as opaque client metadata — never user emails — and update the corresponding plan field in Firestore from the verified webhook handler.
+  1. Register DEV and PROD OAuth Redirect URIs (`<ORIGIN>/callback`) with restricted `drive.file` + `openid` scopes in Google Cloud Console.
+  2. Implement `gdrive_oauth_exchange` and OpenID `sub` lookup in `shared/backend/providers.py` (`implemented=True`).
+  3. Implement `GoogleDriveProviderClient` methods respecting Drive capability constraints (`supports_link_expiry=False`, `supports_link_password=False`, permission-level `anyone` with `allowFileDiscovery: false`). `suite_shell.js` automatically hides unsupported ShareRadar actions via `capabilities`.
+  4. Run `./deploy/setup_gcp_prod.sh --providers box,dropbox,gdrive`, populate `GDRIVE_*` DEV + PROD secrets, and add `"gdrive"` to `.github/deploy-config.json` (`active_providers`).
