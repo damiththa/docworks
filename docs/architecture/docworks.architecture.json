@@ -1,0 +1,557 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "DocWorks Suite — Zero-PII Multi-App & Multi-Provider System Architecture",
+    "subtitle": "ScrubDoc + DiffDoc Unified Browser Shell • Cloud Storage Adapter Boundary (Box Active; Dropbox/GDrive Ready) • Single-Project GCP (docworks-514722) DEV + PROD",
+    "output": "docs/architecture/docworks-architecture.html",
+    "visual_preset": "blueprint",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [1360, 595],
+    "legend_labels": {
+      "frontend": "Browser Suite",
+      "backend": "Stateless OAuth",
+      "database": "Vault / Quotas",
+      "cloud": "Cloud Run / App Factory",
+      "security": "Zero-PII / Security",
+      "messagebus": "Vendored Wasm & WIF CI",
+      "external": "Cloud Storage"
+    },
+    "repository": {
+      "url": "https://github.com/damiththa/docworks",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "HEAD"
+    },
+    "views": [
+      {
+        "id": "shared-suite-architecture",
+        "label": "1. Unified Browser Shell & Two Focused Apps",
+        "focus": [
+          "box_integrations",
+          "suite_shell",
+          "provider_registry",
+          "scrubdoc_app",
+          "diffdoc_app",
+          "shareradar_shared",
+          "vendored_libs"
+        ],
+        "note": "Both ScrubDoc and DiffDoc mount /static/shared (suite_shell.js, suite-shell.css, shareradar_engine.js) and /static/providers (registry.js, box/client.js) while shipping focused per-app Docker images (DiffDoc omits exifr and Tesseract Wasm)."
+      },
+      {
+        "id": "multi-provider-adapter",
+        "label": "2. Multi-Provider Adapter Boundary (Box Active; Dropbox & GDrive Ready)",
+        "focus": [
+          "box_integrations",
+          "provider_adapters",
+          "provider_user_vault",
+          "provider_registry",
+          "oauth_hmac",
+          "cloudrun_fastapi"
+        ],
+        "note": "All provider-specific URLs, CSP directives, OAuth exchanges, CORS file streams, and version uploads live strictly behind shared/backend/providers.py and shared/providers/<provider>/client.js."
+      },
+      {
+        "id": "single-project-dev-prod",
+        "label": "3. Single-Project GCP (docworks-514722) DEV + PROD & Bundle Quotas",
+        "focus": [
+          "suite_shell",
+          "cloudrun_fastapi",
+          "oauth_hmac",
+          "firestore_isolated",
+          "secret_manager_iso",
+          "csp_legal_guardrails",
+          "github_wif_ci"
+        ],
+        "note": "DEV (dev branch auto-deploy) and PROD (main branch owner-gated dispatch) run isolated inside GCP project docworks-514722 (#746704433311) with separate Cloud Run runner SAs, *_DEV Secret Manager keys, and entitlements_{provider}[_dev] supporting plan_bundle, plan_scrubdoc, and plan_diffdoc."
+      }
+    ]
+  },
+  "boundaries": [
+    {
+      "id": "cloud-storage-boundary",
+      "kind": "region",
+      "label": "Cloud Storage Providers (Box Active • Multi-Provider Ready)",
+      "wraps": [
+        "box_integrations",
+        "provider_adapters",
+        "provider_user_vault"
+      ],
+      "pad": 20
+    },
+    {
+      "id": "browser-sandbox-boundary",
+      "kind": "security-group",
+      "label": "Browser Zero-PII Sandbox (100% Client RAM — 0 File Bytes Sent to GCP)",
+      "wraps": [
+        "suite_shell",
+        "provider_registry",
+        "shareradar_shared",
+        "scrubdoc_app",
+        "diffdoc_app",
+        "vendored_libs"
+      ],
+      "pad": 20
+    },
+    {
+      "id": "gcp-project-boundary",
+      "kind": "region",
+      "label": "GCP docworks-514722 (#746704433311) — Isolated DEV + PROD & WIF CI/CD",
+      "wraps": [
+        "cloudrun_fastapi",
+        "oauth_hmac",
+        "firestore_isolated",
+        "github_wif_ci",
+        "secret_manager_iso",
+        "csp_legal_guardrails"
+      ],
+      "pad": 20
+    }
+  ],
+  "components": [
+    {
+      "id": "box_integrations",
+      "type": "external",
+      "brand": "box",
+      "label": "Box Web Integrations",
+      "sublabel": "ScrubDoc & DiffDoc Context Launch",
+      "tag": "GET /launch • Parent Scope",
+      "pos": [38, 126],
+      "size": [210, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/marketplace/listing_copy.md", "line": 21, "end_line": 50, "label": "ScrubDoc File & Folder Box Web Integrations" },
+        { "path": "apps/diffdoc/marketplace/listing_copy.md", "line": 21, "end_line": 45, "label": "DiffDoc File Comparison Box Web Integration" }
+      ]
+    },
+    {
+      "id": "provider_adapters",
+      "type": "external",
+      "brand": "box",
+      "label": "Cloud Storage APIs",
+      "sublabel": "Box Active • Dropbox & GDrive Spec",
+      "tag": "OAuth 2.0 & CORS File Streams",
+      "pos": [38, 260],
+      "size": [210, 74],
+      "sources": [
+        { "path": "shared/backend/providers.py", "line": 13, "end_line": 240, "label": "Backend ProviderSpec registry (box active, dropbox/gdrive scaffolds)" },
+        { "path": "shared/providers/box/client.js", "line": 94, "end_line": 205, "label": "Box versions + ?access_token 302 CORS stream" }
+      ]
+    },
+    {
+      "id": "provider_user_vault",
+      "type": "database",
+      "brand": "box",
+      "label": "User's Cloud Vault",
+      "sublabel": "_Clean, Redline_Report & Snapshots",
+      "tag": "Zero DocWorks File Storage",
+      "pos": [38, 394],
+      "size": [210, 74],
+      "sources": [
+        { "path": "shared/providers/box/client.js", "line": 207, "end_line": 328, "label": "Box multipart uploads, replace & shared links" },
+        { "path": "shared/frontend/js/shareradar_engine.js", "line": 286, "end_line": 362, "label": "Audit CSV & snapshot JSON persisted in user's folder" }
+      ]
+    },
+    {
+      "id": "suite_shell",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "DocWorks Suite SPA Shell",
+      "sublabel": "Shared Header, Picker & ShareRadar DOM",
+      "tag": "/static/shared • RAM Token Only",
+      "pos": [308, 126],
+      "size": [224, 74],
+      "sources": [
+        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 450, "label": "OAuth hash scrubbing, modals & injected suite chrome" },
+        { "path": "shared/frontend/js/suite_shell.js", "line": 644, "end_line": 1393, "label": "createSuiteController & 5-col folder browser" },
+        { "path": "shared/frontend/suite-template.html", "line": 1, "end_line": 80, "label": "Canonical DocWorks Suite Shell template (/template)" },
+        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1005, "label": "Unified DocWorks design tokens, modals & tables" }
+      ]
+    },
+    {
+      "id": "provider_registry",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "Provider Adapter Boundary",
+      "sublabel": "registry.js + Provider Clients",
+      "tag": "Box Active • Dropbox/GDrive Stubs",
+      "pos": [308, 260],
+      "size": [224, 74],
+      "sources": [
+        { "path": "shared/providers/registry.js", "line": 1, "end_line": 35, "label": "Client provider registry lookup" },
+        { "path": "shared/providers/ARCHITECTURE.md", "line": 1, "end_line": 34, "label": "Adapter isolation contract across Box, Dropbox & GDrive" },
+        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 374, "label": "Full BoxBrowserClient (files, versions, ShareRadar, links)" },
+        { "path": "shared/providers/dropbox/client.js", "line": 1, "end_line": 49, "label": "Dropbox provider client scaffold" },
+        { "path": "shared/providers/gdrive/client.js", "line": 1, "end_line": 49, "label": "Google Drive provider client scaffold" }
+      ]
+    },
+    {
+      "id": "shareradar_shared",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "ShareRadar Pro Engine",
+      "sublabel": "Shared Folder & Guest Hygiene",
+      "tag": "0-Byte Crawl • +Δ & CSV Export",
+      "pos": [308, 394],
+      "size": [224, 74],
+      "sources": [
+        { "path": "shared/frontend/js/shareradar_engine.js", "line": 1, "end_line": 367, "label": "Recursive 0-byte sharing audit, +Δ diff & bulk fixes" }
+      ]
+    },
+    {
+      "id": "scrubdoc_app",
+      "type": "security",
+      "brand": "javascript",
+      "label": "ScrubDoc Browser App",
+      "sublabel": "X-Ray • PII/PHI • OCR • 250-DPI Burn",
+      "tag": "apps/scrubdoc/static/",
+      "pos": [588, 126],
+      "size": [226, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/static/index.html", "line": 1, "end_line": 276, "label": "ScrubDoc SPA entrypoint & deferred vendors" },
+        { "path": "apps/scrubdoc/static/js/app.js", "line": 137, "end_line": 401, "label": "ScrubDoc bootstrap & file scrubber pipeline" },
+        { "path": "apps/scrubdoc/static/js/pii_detector.js", "line": 1, "end_line": 606, "label": "17+ PII, financial & HIPAA Safe Harbor detectors" },
+        { "path": "apps/scrubdoc/static/js/redactor_engine.js", "line": 1, "end_line": 705, "label": "Full /Info+XMP wipe & 250-DPI pixel redactor" }
+      ]
+    },
+    {
+      "id": "diffdoc_app",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "DiffDoc Browser App",
+      "sublabel": "Text Redline • Curtain • Sheet Audit",
+      "tag": "apps/diffdoc/static/",
+      "pos": [588, 260],
+      "size": [226, 74],
+      "sources": [
+        { "path": "apps/diffdoc/static/index.html", "line": 1, "end_line": 324, "label": "DiffDoc SPA entrypoint & deferred vendors" },
+        { "path": "apps/diffdoc/static/js/app.js", "line": 200, "end_line": 1131, "label": "DiffDoc version timeline, sibling fallback & comparison controller" },
+        { "path": "apps/diffdoc/static/js/text_diff.js", "line": 19, "end_line": 530, "label": "Patience LCS & word-token contract redline" },
+        { "path": "apps/diffdoc/static/js/spreadsheet_diff.js", "line": 148, "end_line": 552, "label": "Zero-CVE OpenXML .xlsx formula & override diff" }
+      ]
+    },
+    {
+      "id": "vendored_libs",
+      "type": "messagebus",
+      "brand": "docker",
+      "label": "Per-App Vendored Wasm/JS",
+      "sublabel": "pdf.js • pdf-lib • JSZip (+OCR/exifr)",
+      "tag": "MIT/Apache • Zero Runtime CDNs",
+      "pos": [588, 394],
+      "size": [226, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/Dockerfile", "line": 11, "end_line": 29, "label": "ScrubDoc build-time vendoring (incl. exifr & Tesseract Wasm)" },
+        { "path": "apps/diffdoc/Dockerfile", "line": 11, "end_line": 20, "label": "Lightweight DiffDoc vendoring (pdf-lib, pdf.js, JSZip)" }
+      ]
+    },
+    {
+      "id": "cloudrun_fastapi",
+      "type": "cloud",
+      "brand": "fastapi",
+      "label": "FastAPI Factory on Cloud Run",
+      "sublabel": "{app}-{prov}[-dev] (Non-Root)",
+      "tag": "create_docworks_app + No Logs",
+      "pos": [876, 126],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/backend/app_factory.py", "line": 52, "end_line": 268, "label": "Unified FastAPI factory, health, public-config & launch routes" },
+        { "path": "apps/scrubdoc/main.py", "line": 1, "end_line": 8, "label": "ScrubDoc ASGI entrypoint" },
+        { "path": "apps/diffdoc/main.py", "line": 1, "end_line": 8, "label": "DiffDoc ASGI entrypoint" },
+        { "path": "apps/scrubdoc/Dockerfile", "line": 31, "end_line": 43, "label": "Non-root Uvicorn --no-access-log container" }
+      ]
+    },
+    {
+      "id": "oauth_hmac",
+      "type": "backend",
+      "brand": "python",
+      "label": "Stateless OAuth & HMAC",
+      "sublabel": "docworks:v1:{prov}_user:{id}",
+      "tag": "1h Signed Proof • No DB Token",
+      "pos": [876, 260],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/backend/providers.py", "line": 243, "end_line": 280, "label": "Stateless auth code exchange & refresh_token discard" },
+        { "path": "shared/backend/security.py", "line": 8, "end_line": 63, "label": "Domain-separated HMAC user_hash & session_proof" }
+      ]
+    },
+    {
+      "id": "firestore_isolated",
+      "type": "database",
+      "brand": "firebase",
+      "label": "Firestore DEV + PROD Quotas",
+      "sublabel": "entitlements_{prov}[_dev]",
+      "tag": "Cross-App Bundle & Atomic Txns",
+      "pos": [876, 394],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/backend/entitlements.py", "line": 8, "end_line": 210, "label": "Shared bundle, ScrubDoc & DiffDoc atomic quota store" },
+        { "path": "shared/backend/config.py", "line": 50, "end_line": 99, "label": "Environment-isolated Firestore collection & Free tier limits" }
+      ]
+    },
+    {
+      "id": "github_wif_ci",
+      "type": "messagebus",
+      "brand": "github-actions",
+      "label": "GitHub WIF CI & Archify",
+      "sublabel": "dev Auto • PROD Owner-Gated",
+      "tag": "0 SA Keys • Archify + Static CI",
+      "pos": [1116, 126],
+      "size": [206, 74],
+      "sources": [
+        { "path": ".github/deploy-config.json", "line": 1, "end_line": 10, "label": "DEV auto_deploy_on_push vs PROD manual approval matrix" },
+        { "path": ".github/workflows/deploy.yml", "line": 56, "end_line": 398, "label": "Multi-provider WIF matrix Cloud Build & Cloud Run deploy" },
+        { "path": ".github/workflows/ci-verify.yml", "line": 1, "end_line": 78, "label": "Python compileall, shell syntax & JSON static checks" },
+        { "path": ".github/workflows/archify.yml", "line": 1, "end_line": 62, "label": "Automated Archify v3.0 verification & SVG/HTML render" },
+        { "path": "deploy/setup_gcp_wif.sh", "line": 1, "end_line": 124, "label": "Keyless GitHub OIDC Workload Identity Federation setup" },
+        { "path": "docs/GITHUB_ACTIONS.md", "line": 1, "end_line": 77, "label": "CI/CD architecture & environment isolation guide" },
+        { "path": "scripts/render_archify.py", "line": 1, "end_line": 822, "label": "Multi-spec Archify source verifier & diagram renderer" }
+      ]
+    },
+    {
+      "id": "secret_manager_iso",
+      "type": "security",
+      "brand": "google-cloud",
+      "label": "GCP Secret Manager",
+      "sublabel": "*_DEV vs PROD Isolated Keys",
+      "tag": "HMAC_PEPPER & Client Secrets",
+      "pos": [1116, 260],
+      "size": [206, 74],
+      "sources": [
+        { "path": "shared/backend/config.py", "line": 68, "end_line": 90, "label": "Provider-scoped Secret Manager & env fallback loader" },
+        { "path": "deploy/setup_gcp_prod.sh", "line": 86, "end_line": 148, "label": "Least-privilege runner SA & Cloud Run deploy bootstrap" },
+        { "path": "deploy/deploy_app.sh", "line": 1, "end_line": 126, "label": "Guarded CLI deployment wrapper per app, provider & env" }
+      ]
+    },
+    {
+      "id": "csp_legal_guardrails",
+      "type": "security",
+      "brand": "google-cloud",
+      "label": "Zero-PII CSP & Legal",
+      "sublabel": "frame-ancestors & /privacy /terms",
+      "tag": "Provider-Scoped Directives",
+      "pos": [1116, 394],
+      "size": [206, 74],
+      "sources": [
+        { "path": "shared/backend/csp.py", "line": 6, "end_line": 19, "label": "Dynamic CSP builder locking connect-src & frame-ancestors" },
+        { "path": "shared/backend/app_factory.py", "line": 82, "end_line": 96, "label": "CSP, nosniff & asset cache headers middleware" },
+        { "path": "shared/backend/app_factory.py", "line": 270, "end_line": 335, "label": "Provider-parameterized /privacy and /terms renderer" },
+        { "path": "shared/backend/legal/privacy.html", "line": 1, "end_line": 51, "label": "Zero-PII privacy policy template" },
+        { "path": "shared/backend/legal/terms.html", "line": 1, "end_line": 45, "label": "Terms of service template" },
+        { "path": "docs/GUARDRAILS_AND_ROADMAP.md", "line": 1, "end_line": 62, "label": "Operational Zero-PII & multi-provider expansion rules" }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "integrations-to-shell",
+      "from": "box_integrations",
+      "to": "suite_shell",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "variant": "emphasis",
+      "label": "1. /launch"
+    },
+    {
+      "id": "shell-to-cloudrun",
+      "from": "suite_shell",
+      "to": "cloudrun_fastapi",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [[420, 80], [978, 80]],
+      "labelSegment": 1,
+      "labelAt": [699, 74],
+      "variant": "security",
+      "label": "2. POST /api/oauth/exchange & /entitlement (0 File Bytes)"
+    },
+    {
+      "id": "cloudrun-to-provider-oauth",
+      "from": "cloudrun_fastapi",
+      "to": "provider_adapters",
+      "fromSide": "bottom",
+      "fromOffset": -54,
+      "toSide": "top",
+      "via": [[924, 218], [143, 218]],
+      "labelSegment": 1,
+      "labelAt": [560, 212],
+      "variant": "dashed",
+      "label": "Code -> Token + Numeric ID Only"
+    },
+    {
+      "id": "shell-to-scrubdoc",
+      "from": "suite_shell",
+      "to": "scrubdoc_app",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "variant": "emphasis",
+      "label": "Scrub Mode"
+    },
+    {
+      "id": "shell-to-registry",
+      "from": "suite_shell",
+      "to": "provider_registry",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [420, 240],
+      "label": "RAM Token"
+    },
+    {
+      "id": "registry-to-apis",
+      "from": "provider_registry",
+      "to": "provider_adapters",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight",
+      "variant": "emphasis",
+      "label": "CORS 302"
+    },
+    {
+      "id": "registry-to-diffdoc",
+      "from": "provider_registry",
+      "to": "diffdoc_app",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "variant": "emphasis",
+      "label": "v1..vN"
+    },
+    {
+      "id": "registry-to-shareradar",
+      "from": "provider_registry",
+      "to": "shareradar_shared",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [420, 368],
+      "variant": "emphasis",
+      "label": "Folder Tree"
+    },
+    {
+      "id": "apis-to-vault",
+      "from": "provider_adapters",
+      "to": "provider_user_vault",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [143, 368],
+      "variant": "emphasis",
+      "label": "_Clean / Report"
+    },
+    {
+      "id": "shareradar-to-vault",
+      "from": "shareradar_shared",
+      "to": "provider_user_vault",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight",
+      "variant": "dashed",
+      "label": "CSV + JSON"
+    },
+    {
+      "id": "vendored-to-diffdoc",
+      "from": "vendored_libs",
+      "to": "diffdoc_app",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [701, 368],
+      "variant": "dashed",
+      "label": "pdf.js / JSZip / pdf-lib"
+    },
+    {
+      "id": "vendored-to-scrubdoc",
+      "from": "vendored_libs",
+      "to": "scrubdoc_app",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [[825, 431], [825, 163]],
+      "labelSegment": 1,
+      "labelAt": [788, 226],
+      "variant": "dashed",
+      "label": "+exifr/OCR"
+    },
+    {
+      "id": "cloudrun-to-oauth",
+      "from": "cloudrun_fastapi",
+      "to": "oauth_hmac",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [996, 240],
+      "variant": "emphasis",
+      "label": "Verify"
+    },
+    {
+      "id": "oauth-to-firestore",
+      "from": "oauth_hmac",
+      "to": "firestore_isolated",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [978, 368],
+      "variant": "emphasis",
+      "label": "HMAC Txn"
+    },
+    {
+      "id": "wif-to-cloudrun",
+      "from": "github_wif_ci",
+      "to": "cloudrun_fastapi",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight",
+      "variant": "dashed",
+      "label": "WIF CI/CD"
+    },
+    {
+      "id": "secrets-to-oauth",
+      "from": "secret_manager_iso",
+      "to": "oauth_hmac",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight",
+      "variant": "security",
+      "label": "DEV/PROD"
+    },
+    {
+      "id": "guardrails-to-firestore",
+      "from": "csp_legal_guardrails",
+      "to": "firestore_isolated",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight",
+      "variant": "security",
+      "label": "0 PII/Logs"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Shared Suite Shell & Focused App Runtimes",
+      "items": [
+        "shared/frontend/ (suite_shell.js, suite-shell.css, shareradar_engine.js) powers both ScrubDoc and DiffDoc identically.",
+        "Each app ships an independent FastAPI entrypoint (create_docworks_app) and minimal vendored Docker image.",
+        "All PDF parsing, OCR, EXIF scrubbing, pixel redaction, contract diffing, and XLSX formula audits stay 100% in browser RAM."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Provider Isolation (Box Active; Dropbox & GDrive Ready)",
+      "items": [
+        "Provider contracts isolate inside shared/backend/providers.py (Python ProviderSpec) and shared/providers/<provider>/client.js.",
+        "Box Web Integrations launch ScrubDoc and DiffDoc with parent-folder OAuth scoping and direct CORS 302 streams.",
+        "Dropbox and Google Drive scaffolds pre-register adapter modules behind implemented=False until marketplace activation."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Single-Project GCP DEV+PROD (docworks-514722)",
+      "items": [
+        "Keyless GitHub WIF auto-deploys dev branches (scrubdoc-box-dev, diffdoc-box-dev) while PROD requires owner gate (prod.auto_deploy_on_push=false).",
+        "Separate docworks-dev-runner and docworks-prod-runner SAs isolate *_DEV Secret Manager keys and Firestore entitlements_{prov}[_dev].",
+        "Unified cross-app entitlements link ScrubDoc, DiffDoc, and ShareRadar Pro via plan_bundle / app Pro plans under opaque HMAC user keys."
+      ]
+    }
+  ]
+}

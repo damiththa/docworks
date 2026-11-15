@@ -1,0 +1,506 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "DiffDoc (DocWorks Suite) — Zero-PII Multi-Modal Browser Diff Architecture",
+    "subtitle": "100% Client-Side Version History & Sibling File Redlines (.pdf, .docx, .xlsx, .csv, Images) • Stateless Cloud Run DEV/PROD (docworks-514722)",
+    "output": "docs/architecture/diffdoc-architecture.html",
+    "visual_preset": "blueprint",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [1360, 635],
+    "legend_labels": {
+      "frontend": "Browser Diff Engine",
+      "backend": "Stateless OAuth",
+      "database": "Vault / Quotas",
+      "cloud": "Cloud Run",
+      "security": "Zero-PII / Security",
+      "messagebus": "Vendored Bundles",
+      "external": "Cloud Storage"
+    },
+    "repository": {
+      "url": "https://github.com/damiththa/docworks",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "HEAD"
+    },
+    "views": [
+      {
+        "id": "version-and-sibling-diff",
+        "label": "1. Version Timeline & Sibling File Redlines",
+        "focus": [
+          "provider_web_ui",
+          "provider_versions_api",
+          "spa_orchestrator",
+          "cors_provider_client",
+          "text_redline_engine",
+          "visual_diff_engine",
+          "spreadsheet_engine"
+        ],
+        "note": "DiffDoc merges prior file versions (v1..vN-1) with the active version (vN) and discovers compatible sibling files in the parent folder when only v1 exists, running text redlines, curtain pixel diffs, and OpenXML formula audits in RAM."
+      },
+      {
+        "id": "multimodal-engines-and-export",
+        "label": "2. Multi-Modal Engines & 1-Click Report PDF",
+        "focus": [
+          "vendored_wasm",
+          "text_redline_engine",
+          "visual_diff_engine",
+          "spreadsheet_engine",
+          "report_exporter",
+          "provider_upload_api"
+        ],
+        "note": "Lightweight vendored bundles (pdf-lib, pdf.js, JSZip; zero exifr/OCR bloat) generate WinAnsi-safe multi-page Redline_Report.pdf audits directly in browser RAM and upload to the user's cloud folder."
+      },
+      {
+        "id": "zero-pii-quotas-and-ci",
+        "label": "3. Zero-PII Cloud Run DEV/PROD & Shared Bundle Quotas",
+        "focus": [
+          "spa_orchestrator",
+          "cloudrun_fastapi",
+          "provider_oauth_api",
+          "hmac_privacy_guard",
+          "firestore_quotas",
+          "secret_manager"
+        ],
+        "note": "Stateless OAuth exchanges auth_code for numeric provider user ID only, computes domain-separated HMAC(pepper, docworks:v1:{provider}_user:{id}), and shares entitlements_{provider}[_dev] seamlessly with ScrubDoc and ShareRadar Pro."
+      }
+    ]
+  },
+  "boundaries": [
+    {
+      "id": "cloud-storage-boundary",
+      "label": "Cloud Storage & User Account (Box Active • Dropbox/GDrive Ready)",
+      "kind": "region",
+      "pad": 20,
+      "wraps": [
+        "provider_web_ui",
+        "provider_oauth_api",
+        "provider_versions_api",
+        "provider_upload_api"
+      ]
+    },
+    {
+      "id": "browser-sandbox-boundary",
+      "label": "User Browser — 100% In-RAM Diff & Wasm Sandbox (Zero File Bytes Sent to GCP)",
+      "kind": "security-group",
+      "pad": 20,
+      "wraps": [
+        "spa_orchestrator",
+        "cors_provider_client",
+        "vendored_wasm",
+        "text_redline_engine",
+        "visual_diff_engine",
+        "spreadsheet_engine",
+        "report_exporter"
+      ]
+    },
+    {
+      "id": "gcp-control-boundary",
+      "label": "GCP docworks-514722 (#746704433311) — Stateless OAuth & Zero-PII Quota Plane",
+      "kind": "region",
+      "pad": 20,
+      "wraps": [
+        "cloudrun_fastapi",
+        "hmac_privacy_guard",
+        "firestore_quotas",
+        "secret_manager"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "id": "provider_web_ui",
+      "type": "external",
+      "brand": "box",
+      "label": "Box Web Integration",
+      "sublabel": "Compare with DiffDoc (Files)",
+      "tag": "Parent Folder Scope • #auth_code#",
+      "pos": [44, 118],
+      "size": [216, 74],
+      "sources": [
+        { "path": "apps/diffdoc/marketplace/listing_copy.md", "line": 21, "end_line": 45, "label": "Box Web Integration configuration" }
+      ]
+    },
+    {
+      "id": "provider_oauth_api",
+      "type": "external",
+      "brand": "box",
+      "label": "Cloud OAuth 2.0 API",
+      "sublabel": "POST /oauth2/token • /users/me",
+      "tag": "Numeric ID Only • Refresh Discarded",
+      "pos": [44, 222],
+      "size": [216, 74],
+      "sources": [
+        { "path": "shared/backend/providers.py", "line": 13, "end_line": 150, "label": "Multi-provider OAuth code exchange specs" }
+      ]
+    },
+    {
+      "id": "provider_versions_api",
+      "type": "external",
+      "brand": "box",
+      "label": "Versions & Content API",
+      "sublabel": "GET /files/:id/versions & /content",
+      "tag": "?version= Simple GET • 302 Stream",
+      "pos": [44, 326],
+      "size": [216, 74],
+      "sources": [
+        { "path": "shared/providers/box/client.js", "line": 94, "end_line": 205, "label": "Version timeline & CORS byte stream" }
+      ]
+    },
+    {
+      "id": "provider_upload_api",
+      "type": "external",
+      "brand": "box",
+      "label": "Upload & Shared Links API",
+      "sublabel": "POST upload.box.com/files/content",
+      "tag": "Redline_Report.pdf + Shared Link",
+      "pos": [44, 430],
+      "size": [216, 74],
+      "sources": [
+        { "path": "shared/providers/box/client.js", "line": 207, "end_line": 328, "label": "Report upload & shared link helper" }
+      ]
+    },
+    {
+      "id": "spa_orchestrator",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "DocWorks Suite SPA Shell",
+      "sublabel": "Suite Shell + ShareRadar Pro",
+      "tag": "Volatile RAM State • Zero Storage",
+      "pos": [344, 118],
+      "size": [234, 84],
+      "sources": [
+        { "path": "apps/diffdoc/static/index.html", "line": 1, "end_line": 324, "label": "DiffDoc workspace & ShareRadar container" },
+        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1005, "label": "Unified DocWorks Suite stylesheet" },
+        { "path": "apps/diffdoc/static/css/styles.css", "line": 1, "end_line": 805, "label": "DiffDoc comparison studio styles" },
+        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 1393, "label": "Shared header, ShareRadar & folder picker shell" },
+        { "path": "shared/frontend/js/shareradar_engine.js", "line": 1, "end_line": 367, "label": "Folder sharing & guest hygiene engine" },
+        { "path": "apps/diffdoc/static/js/app.js", "line": 200, "end_line": 688, "label": "DiffDoc launch, timeline & comparison controller" }
+      ]
+    },
+    {
+      "id": "cors_provider_client",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "Provider Adapter (CORS)",
+      "sublabel": "registry.js + BoxBrowserClient",
+      "tag": "LRU Uint8Array Cache • 409 Retry",
+      "pos": [344, 246],
+      "size": [234, 84],
+      "sources": [
+        { "path": "shared/providers/registry.js", "line": 1, "end_line": 35, "label": "Provider adapter registry" },
+        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 374, "label": "Browser-direct unified Box client" },
+        { "path": "apps/diffdoc/static/js/app.js", "line": 548, "end_line": 560, "label": "In-RAM LRU byte cache" },
+        { "path": "shared/providers/dropbox/client.js", "line": 1, "end_line": 49, "label": "Dropbox adapter scaffold" },
+        { "path": "shared/providers/gdrive/client.js", "line": 1, "end_line": 49, "label": "Google Drive adapter scaffold" }
+      ]
+    },
+    {
+      "id": "vendored_wasm",
+      "type": "messagebus",
+      "brand": "docker",
+      "label": "Self-Hosted Client Bundles",
+      "sublabel": "pdf.js • pdf-lib • JSZip (No OCR)",
+      "tag": "MIT/Apache-2.0 • Zero 3rd-Party CDN",
+      "pos": [344, 384],
+      "size": [234, 84],
+      "sources": [
+        { "path": "apps/diffdoc/Dockerfile", "line": 11, "end_line": 20, "label": "Lightweight DiffDoc vendoring (excludes exifr/OCR)" },
+        { "path": "apps/diffdoc/static/index.html", "line": 11, "end_line": 14, "label": "Deferred local /static/vendor scripts" }
+      ]
+    },
+    {
+      "id": "text_redline_engine",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "Text & Clause Redline Engine",
+      "sublabel": "Patience LCS + Word-Token Diff",
+      "tag": "$ Amount • % Rate • Date • Legal",
+      "pos": [634, 118],
+      "size": [242, 78],
+      "sources": [
+        { "path": "apps/diffdoc/static/js/text_diff.js", "line": 19, "end_line": 530, "label": "PDF/DOCX/Text redline & clause callouts" },
+        { "path": "apps/diffdoc/static/js/app.js", "line": 752, "end_line": 949, "label": "Unified & split redline view rendering" }
+      ]
+    },
+    {
+      "id": "visual_diff_engine",
+      "type": "frontend",
+      "brand": "html5",
+      "label": "Visual Curtain & Pixel Diff",
+      "sublabel": "Split Curtain Slider + Crimson Δ",
+      "tag": "Multi-Page PDF & Image Comparator",
+      "pos": [634, 222],
+      "size": [242, 78],
+      "sources": [
+        { "path": "apps/diffdoc/static/js/visual_diff.js", "line": 21, "end_line": 272, "label": "Canvas rasterizer & perceptual pixel delta" },
+        { "path": "apps/diffdoc/static/js/app.js", "line": 954, "end_line": 1018, "label": "Interactive curtain pointer sync UI" }
+      ]
+    },
+    {
+      "id": "spreadsheet_engine",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "Spreadsheet & Formula Audit",
+      "sublabel": "OpenXML .xlsx <f>/<v> + CSV",
+      "tag": "Flags Hardcoded Formula Overrides",
+      "pos": [634, 326],
+      "size": [242, 78],
+      "sources": [
+        { "path": "apps/diffdoc/static/js/spreadsheet_diff.js", "line": 148, "end_line": 552, "label": "Zero-CVE OpenXML formula & cell audit" },
+        { "path": "apps/diffdoc/static/js/app.js", "line": 1023, "end_line": 1131, "label": "Multi-sheet formula filter & override warnings" }
+      ]
+    },
+    {
+      "id": "report_exporter",
+      "type": "security",
+      "brand": "javascript",
+      "label": "Redline_Report.pdf Builder",
+      "sublabel": "WinAnsi-Safe Multi-Page Audit PDF",
+      "tag": "Zero Author PII • Snapshot Embed",
+      "pos": [634, 430],
+      "size": [242, 74],
+      "sources": [
+        { "path": "apps/diffdoc/static/js/report_exporter.js", "line": 71, "end_line": 540, "label": "In-browser verification PDF generator" },
+        { "path": "apps/diffdoc/static/js/app.js", "line": 1168, "end_line": 1219, "label": "Upload report to provider or local download" }
+      ]
+    },
+    {
+      "id": "cloudrun_fastapi",
+      "type": "cloud",
+      "brand": "fastapi",
+      "label": "Cloud Run: diffdoc-{prov}[-dev]",
+      "sublabel": "app_factory.py Stateless Broker",
+      "tag": "--no-access-log • Strict CSP",
+      "pos": [964, 118],
+      "size": [344, 82],
+      "sources": [
+        { "path": "apps/diffdoc/main.py", "line": 1, "end_line": 8, "label": "DiffDoc factory entrypoint" },
+        { "path": "shared/backend/app_factory.py", "line": 52, "end_line": 356, "label": "Shared FastAPI factory, CSP & stateless routes" },
+        { "path": "shared/backend/csp.py", "line": 6, "end_line": 19, "label": "Provider-locked CSP builder" },
+        { "path": "apps/diffdoc/Dockerfile", "line": 22, "end_line": 34, "label": "Non-root Uvicorn container" }
+      ]
+    },
+    {
+      "id": "hmac_privacy_guard",
+      "type": "security",
+      "brand": "python",
+      "label": "Domain-Separated HMAC Proof",
+      "sublabel": "HMAC(pepper, docworks:v1:{prov}:id)",
+      "tag": "1h Signed session_proof • No Tokens",
+      "pos": [964, 232],
+      "size": [344, 78],
+      "sources": [
+        { "path": "shared/backend/security.py", "line": 8, "end_line": 63, "label": "Irreversible user_hash & stateless HMAC proof signer" },
+        { "path": "shared/backend/providers.py", "line": 243, "end_line": 280, "label": "Stateless OAuth code exchange" }
+      ]
+    },
+    {
+      "id": "firestore_quotas",
+      "type": "database",
+      "brand": "firebase",
+      "label": "Firestore: entitlements_{prov}[_dev]",
+      "sublabel": "{ plan_bundle, diffs_used, radar_fixes_used }",
+      "tag": "5 Free Diffs/Mo • Cross-App Bundle",
+      "pos": [964, 342],
+      "size": [344, 78],
+      "sources": [
+        { "path": "shared/backend/entitlements.py", "line": 8, "end_line": 210, "label": "Atomic Free/Pro/Bundle Firestore quota store" },
+        { "path": "shared/backend/config.py", "line": 50, "end_line": 99, "label": "DEV/PROD Firestore collections & quota limits" }
+      ]
+    },
+    {
+      "id": "secret_manager",
+      "type": "security",
+      "brand": "google-cloud",
+      "label": "Secret Manager & WIF / Archify CI",
+      "sublabel": "*_DEV vs PROD Keys • docworks-514722",
+      "tag": "PROD Auto-Deploy False • Cloud Archify",
+      "pos": [964, 444],
+      "size": [344, 60],
+      "sources": [
+        { "path": "shared/backend/config.py", "line": 68, "end_line": 90, "label": "Provider-scoped Secret Manager loader" },
+        { "path": ".github/deploy-config.json", "line": 1, "end_line": 10, "label": "DEV auto-deploy vs PROD manual gate" },
+        { "path": ".github/workflows/deploy.yml", "line": 56, "end_line": 398, "label": "Multi-provider WIF Cloud Build & deploy" },
+        { "path": ".github/workflows/archify.yml", "line": 1, "end_line": 62, "label": "Cloud Archify verification & render CI" },
+        { "path": ".github/workflows/ci-verify.yml", "line": 1, "end_line": 78, "label": "Static syntax & asset checks" },
+        { "path": "deploy/setup_gcp_prod.sh", "line": 86, "end_line": 148, "label": "Runner SA & secret bindings" },
+        { "path": "deploy/setup_gcp_wif.sh", "line": 1, "end_line": 124, "label": "Keyless GitHub OIDC WIF setup" }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "provider-launch-to-spa",
+      "from": "provider_web_ui",
+      "to": "spa_orchestrator",
+      "fromSide": "right",
+      "toSide": "left",
+      "variant": "emphasis",
+      "label": "GET /launch (?auth_code, file_id)"
+    },
+    {
+      "id": "spa-to-cloudrun-exchange",
+      "from": "spa_orchestrator",
+      "to": "cloudrun_fastapi",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [[461, 76], [1136, 76]],
+      "labelSegment": 1,
+      "labelAt": [798, 70],
+      "variant": "security",
+      "label": "POST /api/oauth/exchange & /entitlement/consume (Zero File Bytes)"
+    },
+    {
+      "id": "cloudrun-to-provider-oauth",
+      "from": "cloudrun_fastapi",
+      "to": "provider_oauth_api",
+      "fromSide": "left",
+      "fromOffset": 34,
+      "toSide": "top",
+      "via": [[942, 193], [942, 207], [152, 207]],
+      "labelSegment": 2,
+      "labelAt": [585, 203],
+      "variant": "dashed",
+      "label": "Stateless Code -> Token + Numeric ID"
+    },
+    {
+      "id": "spa-to-cors-client",
+      "from": "spa_orchestrator",
+      "to": "cors_provider_client",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [461, 226],
+      "variant": "default",
+      "label": "Timeline + Pair"
+    },
+    {
+      "id": "cors-to-provider-versions",
+      "from": "cors_provider_client",
+      "to": "provider_versions_api",
+      "fromSide": "left",
+      "toSide": "right",
+      "toOffset": -16,
+      "variant": "emphasis",
+      "label": "CORS 302 Stream (v1..vN)"
+    },
+    {
+      "id": "wasm-to-engines",
+      "from": "vendored_wasm",
+      "to": "spreadsheet_engine",
+      "fromSide": "right",
+      "toSide": "left",
+      "toOffset": 18,
+      "variant": "dashed",
+      "label": "pdf.js / JSZip / pdf-lib"
+    },
+    {
+      "id": "spa-to-text-diff",
+      "from": "spa_orchestrator",
+      "to": "text_redline_engine",
+      "fromSide": "right",
+      "toSide": "left",
+      "variant": "emphasis",
+      "label": ".pdf / .docx / .txt"
+    },
+    {
+      "id": "cors-to-visual-diff",
+      "from": "cors_provider_client",
+      "to": "visual_diff_engine",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromOffset": -14,
+      "variant": "emphasis",
+      "label": "PDF / Image Uint8Array"
+    },
+    {
+      "id": "cors-to-sheet-diff",
+      "from": "cors_provider_client",
+      "to": "spreadsheet_engine",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromOffset": 18,
+      "toOffset": -12,
+      "variant": "emphasis",
+      "label": ".xlsx / .csv Bytes"
+    },
+    {
+      "id": "engines-to-exporter",
+      "from": "spreadsheet_engine",
+      "to": "report_exporter",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default",
+      "label": "Redline + Formula Deltas"
+    },
+    {
+      "id": "exporter-to-provider-upload",
+      "from": "report_exporter",
+      "to": "provider_upload_api",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [[755, 546], [152, 546]],
+      "labelSegment": 1,
+      "labelAt": [454, 540],
+      "variant": "emphasis",
+      "label": "1-Click Upload Redline_Report.pdf"
+    },
+    {
+      "id": "cloudrun-to-hmac",
+      "from": "cloudrun_fastapi",
+      "to": "hmac_privacy_guard",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "security",
+      "label": "Verify Proof"
+    },
+    {
+      "id": "hmac-to-firestore",
+      "from": "hmac_privacy_guard",
+      "to": "firestore_quotas",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "dashed",
+      "label": "Atomic Quota Txn"
+    },
+    {
+      "id": "secrets-to-firestore",
+      "from": "secret_manager",
+      "to": "firestore_quotas",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "variant": "security",
+      "label": "Injected Secrets"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "100% Browser-Only Multi-Modal Diff",
+      "items": [
+        "Text & Contract Redlines (.pdf, .docx, .txt, .md, .json) with Patience LCS + $ / % / Date / Legal Clause callouts.",
+        "Visual Split Curtain Slider + Crimson Pixel-Delta Overlay across multi-page PDFs and PNG/JPEG/WebP images.",
+        "Zero-CVE OpenXML .xlsx + RFC-4180 .csv Auditor catching altered =SUM() formulas and hardcoded overrides."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Version History + Sibling File Workflows",
+      "items": [
+        "Merges GET /files/:id/versions (v1..vN-1) with active file_version (vN) and auto-diffs v(N-1) -> vN on launch.",
+        "Parent Folder Web Integration scope auto-discovers compatible sibling files when a file only has v1.",
+        "Cross-format capable: redlines .docx drafts directly against signed .pdf files and .csv against .xlsx."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Zero-PII Stateless DocWorks Cloud",
+      "items": [
+        "Zero file bytes, diff hunks, filenames, emails, or provider OAuth tokens ever transit or persist on GCP.",
+        "Domain-separated HMAC-SHA256(pepper, docworks:v1:{prov}_user:{id}) shares bundle Pro entitlements across ScrubDoc & DiffDoc.",
+        "Builds WinAnsi-safe Redline_Report.pdf straight in browser RAM and uploads to the user's cloud folder via ProviderBrowserClient."
+      ]
+    }
+  ]
+}

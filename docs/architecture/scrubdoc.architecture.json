@@ -1,0 +1,553 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ScrubDoc (DocWorks Suite) — Zero-PII Scrubber, Redactor & ShareRadar Process Architecture",
+    "subtitle": "100% In-Browser Wasm/Canvas Processing • Parent-Scoped _Clean v1 Export • Multi-Provider Ready • Stateless HMAC Cloud Run (docworks-514722)",
+    "output": "docs/architecture/scrubdoc-architecture.html",
+    "visual_preset": "blueprint",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [1350, 610],
+    "legend_labels": {
+      "frontend": "Browser Engine",
+      "backend": "Stateless OAuth",
+      "database": "Vault / Quotas",
+      "cloud": "Cloud Run",
+      "security": "Zero-PII / Security",
+      "messagebus": "CI / Vendored Wasm",
+      "external": "Cloud Storage"
+    },
+    "repository": {
+      "url": "https://github.com/damiththa/docworks",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "HEAD"
+    },
+    "views": [
+      {
+        "id": "file-scrub-and-redact",
+        "label": "1. File Scrub & Byte-Destructive Redaction",
+        "focus": [
+          "box_web_launch",
+          "spa_controller",
+          "provider_cors_sdk",
+          "provider_content_apis",
+          "xray_pii_engine",
+          "redactor_canvas",
+          "vendored_bundles",
+          "provider_user_vault"
+        ],
+        "note": "User right-clicks PDF/Image/DOCX via Box Web Integration (Parent-Folder scope) -> Browser streams bytes via ?access_token 302 CORS GET -> Runs EXIF/GPS/XMP clean-up + 17+ PII/HIPAA PHI + lazy Tesseract Wasm OCR -> Rasterizes 250-DPI pixel burn -> Uploads brand-new v1 _Clean copy (0 unredacted Version History)."
+      },
+      {
+        "id": "shareradar-folder-audit",
+        "label": "2. ShareRadar Pro 9-Metric Folder Audit & +Δ Spikes",
+        "focus": [
+          "box_web_launch",
+          "spa_controller",
+          "provider_cors_sdk",
+          "shareradar_engine",
+          "provider_content_apis",
+          "provider_user_vault"
+        ],
+        "note": "User right-clicks any folder -> ShareRadar recursively crawls metadata (0 file bytes downloaded), diffs preview_count & download_count against snapshot JSON in User's own folder (_docworks_radar_snapshot.json / legacy fallback), flags External Guests, and runs 1-click Bulk Revoke / View-Only / 30d Expiry + CSV export."
+      },
+      {
+        "id": "zero-pii-oauth-and-quotas",
+        "label": "3. Zero-PII Stateless OAuth & Shared DocWorks Quotas",
+        "focus": [
+          "spa_controller",
+          "cloudrun_fastapi",
+          "oauth_hmac_broker",
+          "secret_manager",
+          "firestore_quotas",
+          "zero_pii_guardrails"
+        ],
+        "note": "Cloud Run exchanges short-lived auth_code in RAM, fetches ONLY numeric id from /users/me?fields=id, discards refresh_token, computes HMAC_SHA256(pepper, docworks:v1:{provider}_user:{id}), and updates Firestore entitlements_{provider}[_dev] shared cleanly with DiffDoc."
+      },
+      {
+        "id": "wif-build-and-governance",
+        "label": "4. GitHub WIF CI/CD, Vendored Wasm & DEV/PROD Gate",
+        "focus": [
+          "cicd_governance",
+          "cloudrun_fastapi",
+          "vendored_bundles",
+          "secret_manager",
+          "zero_pii_guardrails"
+        ],
+        "note": "Container builds vendor pdf-lib, pdf.js, exifr, JSZip, and lazy Tesseract.js Wasm remotely (0 runtime CDNs), GitHub Actions WIF deploys dev auto-on-push, PROD deploy stays owner-gated in .github/deploy-config.json, and Archify compiles verified diagrams remotely."
+      }
+    ]
+  },
+  "boundaries": [
+    {
+      "id": "cloud-storage-boundary",
+      "kind": "region",
+      "label": "Cloud Storage & User Account (Box Active • Dropbox/GDrive Ready)",
+      "wraps": [
+        "box_web_launch",
+        "provider_content_apis",
+        "provider_user_vault"
+      ],
+      "pad": 20
+    },
+    {
+      "id": "browser-sandbox-boundary",
+      "kind": "security-group",
+      "label": "Browser Zero-PII Sandbox (100% Client RAM — 0 File Bytes Sent to GCP)",
+      "wraps": [
+        "spa_controller",
+        "provider_cors_sdk",
+        "shareradar_engine",
+        "xray_pii_engine",
+        "redactor_canvas",
+        "vendored_bundles"
+      ],
+      "pad": 20
+    },
+    {
+      "id": "gcp-control-boundary",
+      "kind": "region",
+      "label": "GCP docworks-514722 (#746704433311) — Stateless DEV & PROD",
+      "wraps": [
+        "cloudrun_fastapi",
+        "oauth_hmac_broker",
+        "firestore_quotas",
+        "cicd_governance",
+        "secret_manager",
+        "zero_pii_guardrails"
+      ],
+      "pad": 20
+    }
+  ],
+  "components": [
+    {
+      "id": "box_web_launch",
+      "type": "external",
+      "brand": "box",
+      "label": "Box Web Integrations",
+      "sublabel": "File (Parent) & Folder Menu",
+      "tag": "GET /launch + #auth_code#",
+      "pos": [38, 122],
+      "size": [194, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/marketplace/listing_copy.md", "line": 21, "end_line": 50, "label": "File & Folder Box Web Integration configs" }
+      ]
+    },
+    {
+      "id": "provider_content_apis",
+      "type": "external",
+      "brand": "box",
+      "label": "Cloud Storage REST APIs",
+      "sublabel": "api.box.com & dl.boxcloud.com",
+      "tag": "302 Stream & Multipart Upload",
+      "pos": [38, 264],
+      "size": [194, 74],
+      "sources": [
+        { "path": "shared/providers/box/client.js", "line": 94, "end_line": 328, "label": "CORS content download, version upload & shared links" },
+        { "path": "shared/backend/providers.py", "line": 13, "end_line": 150, "label": "Provider OAuth & token endpoints" }
+      ]
+    },
+    {
+      "id": "provider_user_vault",
+      "type": "database",
+      "brand": "box",
+      "label": "User's Cloud Folder Vault",
+      "sublabel": "_Clean v1, CSV & Snapshot",
+      "tag": "0 Version History Leak",
+      "pos": [38, 406],
+      "size": [194, 74],
+      "sources": [
+        { "path": "shared/providers/box/client.js", "line": 207, "end_line": 285, "label": "Save _Clean copy or replace file version" },
+        { "path": "shared/frontend/js/shareradar_engine.js", "line": 286, "end_line": 362, "label": "Snapshot JSON & ShareRadar CSV saved in user's folder" }
+      ]
+    },
+    {
+      "id": "spa_controller",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "ScrubDoc + Suite SPA",
+      "sublabel": "Suite Shell & Volatile RAM Token",
+      "tag": "ES Modules • 0 Storage",
+      "pos": [304, 122],
+      "size": [204, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/static/index.html", "line": 1, "end_line": 276, "label": "ScrubDoc workspace & deferred vendor mounts" },
+        { "path": "apps/scrubdoc/static/js/app.js", "line": 137, "end_line": 401, "label": "ScrubDoc bootstrap, quota check & scrubber loader" },
+        { "path": "shared/frontend/js/suite_shell.js", "line": 132, "end_line": 450, "label": "Canonical suite header, toast, ShareRadar & folder picker" },
+        { "path": "shared/frontend/css/suite-shell.css", "line": 1, "end_line": 1005, "label": "Shared DocWorks suite theme, tables & sticky footer" },
+        { "path": "apps/scrubdoc/static/css/styles.css", "line": 1, "end_line": 564, "label": "ScrubDoc Redactor studio styles" }
+      ]
+    },
+    {
+      "id": "provider_cors_sdk",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "Provider CORS Adapter",
+      "sublabel": "registry.js + BoxBrowserClient",
+      "tag": "Direct Browser <-> Storage",
+      "pos": [304, 264],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/providers/registry.js", "line": 1, "end_line": 35, "label": "Multi-provider browser adapter lookup" },
+        { "path": "shared/providers/box/client.js", "line": 14, "end_line": 374, "label": "BoxBrowserClient (?access_token 302, 409 retry, ShareRadar)" },
+        { "path": "shared/providers/dropbox/client.js", "line": 1, "end_line": 49, "label": "Dropbox browser adapter scaffold" },
+        { "path": "shared/providers/gdrive/client.js", "line": 1, "end_line": 49, "label": "Google Drive browser adapter scaffold" }
+      ]
+    },
+    {
+      "id": "shareradar_engine",
+      "type": "frontend",
+      "brand": "javascript",
+      "label": "ShareRadar 9-Metric Engine",
+      "sublabel": "Opens, Downloads, +Δ & Guests",
+      "tag": "Revoke / View-Only / 30d",
+      "pos": [304, 406],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/frontend/js/shareradar_engine.js", "line": 1, "end_line": 367, "label": "Recursive 0-byte audit, +Δ diff & bulk fixes" },
+        { "path": "shared/frontend/suite-template.html", "line": 1, "end_line": 80, "label": "Canonical ShareRadar & picker template DOM" }
+      ]
+    },
+    {
+      "id": "xray_pii_engine",
+      "type": "security",
+      "brand": "webassembly",
+      "label": "PII, PHI & Lazy Wasm OCR",
+      "sublabel": "HIPAA PHI, Checksums & OCR",
+      "tag": "1-Click & Page Highlights",
+      "pos": [570, 122],
+      "size": [206, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/static/js/metadata_xray.js", "line": 8, "end_line": 246, "label": "Plain-English EXIF/GPS/Thumb, PDF & DOCX inspector" },
+        { "path": "apps/scrubdoc/static/js/pii_detector.js", "line": 1, "end_line": 606, "label": "Line-stitched PII & HIPAA Safe Harbor PHI detector" },
+        { "path": "apps/scrubdoc/static/js/ocr_engine.js", "line": 1, "end_line": 111, "label": "Lazy-loaded Tesseract.js Wasm OCR worker" }
+      ]
+    },
+    {
+      "id": "redactor_canvas",
+      "type": "security",
+      "brand": "html5",
+      "label": "Byte-Destructive Redactor",
+      "sublabel": "250-DPI Pixel Burn & XML Scrub",
+      "tag": "Click Toggle + Drag Custom",
+      "pos": [570, 264],
+      "size": [206, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/static/js/redactor_engine.js", "line": 1, "end_line": 705, "label": "Full /Info+XMP wipe, Page 1 render & 250-DPI burn" },
+        { "path": "apps/scrubdoc/static/js/app.js", "line": 649, "end_line": 760, "label": "Sanitized export upload & post-upload quota consumption" }
+      ]
+    },
+    {
+      "id": "vendored_bundles",
+      "type": "messagebus",
+      "brand": "docker",
+      "label": "Self-Hosted Wasm/JS Libs",
+      "sublabel": "pdf-lib, pdf.js, Tesseract, JSZip",
+      "tag": "MIT/Apache-2.0 • 0 CDNs",
+      "pos": [570, 406],
+      "size": [206, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/Dockerfile", "line": 11, "end_line": 29, "label": "Build-time vendoring incl. exifr & lazy Tesseract Wasm" },
+        { "path": "apps/scrubdoc/static/index.html", "line": 11, "end_line": 15, "label": "Deferred local /static/vendor script tags" }
+      ]
+    },
+    {
+      "id": "cloudrun_fastapi",
+      "type": "cloud",
+      "brand": "fastapi",
+      "label": "Cloud Run: scrubdoc-{prov}",
+      "sublabel": "app_factory.py DEV & PROD",
+      "tag": "us-central1 • Non-Root",
+      "pos": [848, 122],
+      "size": [204, 74],
+      "sources": [
+        { "path": "apps/scrubdoc/main.py", "line": 1, "end_line": 8, "label": "ScrubDoc service factory call" },
+        { "path": "shared/backend/app_factory.py", "line": 52, "end_line": 268, "label": "Shared FastAPI factory, static mounts & launch routes" },
+        { "path": "apps/scrubdoc/Dockerfile", "line": 31, "end_line": 43, "label": "Non-root Uvicorn with --no-access-log" }
+      ]
+    },
+    {
+      "id": "oauth_hmac_broker",
+      "type": "backend",
+      "brand": "python",
+      "label": "Stateless OAuth & HMAC",
+      "sublabel": "/users/me?fields=id Only",
+      "tag": "HMAC-SHA256 Session Proof",
+      "pos": [848, 264],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/backend/providers.py", "line": 243, "end_line": 280, "label": "Stateless OAuth code exchange & refresh discard" },
+        { "path": "shared/backend/security.py", "line": 8, "end_line": 63, "label": "Domain-separated docworks:v1 HMAC user_hash & proof" },
+        { "path": "shared/backend/app_factory.py", "line": 143, "end_line": 177, "label": "POST /api/oauth/exchange handler" }
+      ]
+    },
+    {
+      "id": "firestore_quotas",
+      "type": "database",
+      "brand": "firebase",
+      "label": "Firestore Shared Quotas",
+      "sublabel": "entitlements_{prov}[_dev]",
+      "tag": "HMAC Key • Bundle & Scrub Tier",
+      "pos": [848, 406],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/backend/entitlements.py", "line": 8, "end_line": 210, "label": "Pre-warmed atomic Free/Pro/Bundle Firestore store" },
+        { "path": "shared/backend/config.py", "line": 50, "end_line": 99, "label": "DEV/PROD Firestore collection & Free tier limits" }
+      ]
+    },
+    {
+      "id": "cicd_governance",
+      "type": "messagebus",
+      "brand": "github-actions",
+      "label": "GitHub WIF & Archify CI",
+      "sublabel": "dev Auto • PROD Owner-Gated",
+      "tag": "0 SA Keys • 0 Local Exec",
+      "pos": [1092, 122],
+      "size": [204, 74],
+      "sources": [
+        { "path": ".github/deploy-config.json", "line": 1, "end_line": 10, "label": "PROD auto_deploy_on_push: false gate" },
+        { "path": ".github/workflows/deploy.yml", "line": 56, "end_line": 398, "label": "WIF matrix Cloud Build & Cloud Run deploy" },
+        { "path": ".github/workflows/archify.yml", "line": 1, "end_line": 62, "label": "Cloud Archify v3.0 validation & render CI" },
+        { "path": ".github/workflows/ci-verify.yml", "line": 1, "end_line": 78, "label": "Static syntax & asset checks" },
+        { "path": "deploy/setup_gcp_wif.sh", "line": 1, "end_line": 124, "label": "Keyless OIDC Workload Identity setup" },
+        { "path": "docs/GITHUB_ACTIONS.md", "line": 1, "end_line": 77, "label": "CI/CD & multi-environment documentation" }
+      ]
+    },
+    {
+      "id": "secret_manager",
+      "type": "security",
+      "brand": "google-cloud",
+      "label": "GCP Secret Manager",
+      "sublabel": "*_DEV vs PROD Isolated Keys",
+      "tag": "HMAC_PEPPER & Client Secrets",
+      "pos": [1092, 264],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/backend/config.py", "line": 68, "end_line": 90, "label": "Provider-scoped Secret Manager & env loader" },
+        { "path": "deploy/setup_gcp_prod.sh", "line": 86, "end_line": 148, "label": "Cloud Run secret bindings & runner SA" }
+      ]
+    },
+    {
+      "id": "zero_pii_guardrails",
+      "type": "security",
+      "brand": "google-cloud",
+      "label": "Zero-PII & CSP Shield",
+      "sublabel": "frame-ancestors & --no-log",
+      "tag": "/privacy & /terms",
+      "pos": [1092, 406],
+      "size": [204, 74],
+      "sources": [
+        { "path": "shared/backend/csp.py", "line": 6, "end_line": 19, "label": "Strict dynamic CSP & provider frame-ancestors" },
+        { "path": "shared/backend/app_factory.py", "line": 82, "end_line": 96, "label": "Security headers & 24h asset cache middleware" },
+        { "path": "shared/backend/app_factory.py", "line": 270, "end_line": 335, "label": "Parameterized /privacy and /terms HTML renderer" },
+        { "path": "shared/backend/legal/privacy.html", "line": 1, "end_line": 51, "label": "Zero-retention privacy policy template" },
+        { "path": "shared/backend/legal/terms.html", "line": 1, "end_line": 45, "label": "Redaction verification terms template" },
+        { "path": "docs/GUARDRAILS_AND_ROADMAP.md", "line": 7, "end_line": 25, "label": "Zero-PII operational rules" }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "launch-to-spa",
+      "from": "box_web_launch",
+      "to": "spa_controller",
+      "label": "1. /launch + auth_code",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight"
+    },
+    {
+      "id": "spa-to-cloudrun",
+      "from": "spa_controller",
+      "to": "cloudrun_fastapi",
+      "label": "2. POST /api/oauth/exchange & quota proof (0 file bytes)",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [[406, 78], [950, 78]],
+      "labelSegment": 1,
+      "labelAt": [678, 72]
+    },
+    {
+      "id": "cloudrun-to-oauth",
+      "from": "cloudrun_fastapi",
+      "to": "oauth_hmac_broker",
+      "label": "code exchange",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [950, 234]
+    },
+    {
+      "id": "secrets-to-oauth",
+      "from": "secret_manager",
+      "to": "oauth_hmac_broker",
+      "label": "DEV/PROD keys",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight"
+    },
+    {
+      "id": "oauth-to-firestore",
+      "from": "oauth_hmac_broker",
+      "to": "firestore_quotas",
+      "label": "HMAC(id) txn",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [950, 376]
+    },
+    {
+      "id": "guardrails-to-firestore",
+      "from": "zero_pii_guardrails",
+      "to": "firestore_quotas",
+      "label": "0 PII / 0 logs",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight"
+    },
+    {
+      "id": "cicd-to-cloudrun",
+      "from": "cicd_governance",
+      "to": "cloudrun_fastapi",
+      "label": "WIF CI/CD",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight"
+    },
+    {
+      "id": "spa-to-xray",
+      "from": "spa_controller",
+      "to": "xray_pii_engine",
+      "label": "3a. X-Ray & PII",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight"
+    },
+    {
+      "id": "xray-to-redactor",
+      "from": "xray_pii_engine",
+      "to": "redactor_canvas",
+      "label": "PII boxes",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [673, 234]
+    },
+    {
+      "id": "vendored-to-redactor",
+      "from": "vendored_bundles",
+      "to": "redactor_canvas",
+      "label": "'self' Wasm",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [673, 376]
+    },
+    {
+      "id": "spa-to-corssdk",
+      "from": "spa_controller",
+      "to": "provider_cors_sdk",
+      "label": "RAM token",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [406, 234]
+    },
+    {
+      "id": "redactor-to-corssdk",
+      "from": "redactor_canvas",
+      "to": "provider_cors_sdk",
+      "label": "4a. Clean v1",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight"
+    },
+    {
+      "id": "corssdk-to-apis",
+      "from": "provider_cors_sdk",
+      "to": "provider_content_apis",
+      "label": "CORS 302 & Upload",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight"
+    },
+    {
+      "id": "corssdk-to-radar",
+      "from": "provider_cors_sdk",
+      "to": "shareradar_engine",
+      "label": "3b. Tree & fixes",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [406, 376]
+    },
+    {
+      "id": "apis-to-vault",
+      "from": "provider_content_apis",
+      "to": "provider_user_vault",
+      "label": "Save _Clean",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [135, 376]
+    },
+    {
+      "id": "radar-to-vault",
+      "from": "shareradar_engine",
+      "to": "provider_user_vault",
+      "label": "4b. CSV + Snapshot",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "right",
+      "route": "straight"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "1. Scrub & Byte-Destructive Redact (File Flow)",
+      "items": [
+        "Parent-folder Box Web Integration scope enables saving brand-new v1 _Clean files (0 Version History leaks).",
+        "Simple GET ?access_token bypasses CORS preflight across Box's 302 redirect to dl.boxcloud.com.",
+        "Privacy X-Ray flags EXIF GPS, serial numbers, hidden EXIF thumbnails, PDF /Info + XMP, and DOCX comments/authors.",
+        "Auto-detects SSNs, Luhn cards, ABA routing, emails, phones + Filename PII; burns #000000 into 250-DPI pixels."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "2. ShareRadar Pro 9-Metric Folder Audit (Folder Flow)",
+      "items": [
+        "Zero-byte recursive folder crawl surfacing preview_count (Opens), download_count (Downloads) & exfiltration flags.",
+        "Tracks +Δ new opens/downloads & days open via snapshot JSON stored inside the user's own cloud folder.",
+        "Flags external domain collaborators with guest tenure days and role severity (Editor / Co-owner vs Viewer).",
+        "1-click Bulk Revoke, Force View-Only, Stamp 30-Day Expiry, Guest Removal, and provider CSV audit export."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "3. Zero-PII Cloud Run & DocWorks Governance",
+      "items": [
+        "Stateless OAuth fetches ONLY /users/me?fields=id, discards refresh_token, and hashes via HMAC_SHA256(pepper, docworks:v1:{prov}_user:{id}).",
+        "Firestore entitlements_{provider}[_dev] stores strictly anonymous quota & bundle/Pro counters updated only after save confirmation.",
+        "Self-hosts pdf-lib, pdf.js, exifr, JSZip & lazy Tesseract.js Wasm at build time (0 third-party CDNs; Uvicorn --no-access-log).",
+        "Single-project docworks-514722 hosts DEV (auto-deploy) and PROD (owner-gated prod.auto_deploy_on_push=false)."
+      ]
+    }
+  ]
+}

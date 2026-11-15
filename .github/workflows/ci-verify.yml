@@ -28,7 +28,9 @@ jobs:
           python-version: "3.12"
 
       - name: Check Python syntax (compileall)
-        run: python3 -m compileall -q shared apps
+        run: |
+          python3 -m compileall -q shared apps
+          python3 -m py_compile scripts/render_archify.py
 
       - name: Validate shell deploy scripts syntax
         run: |
@@ -39,8 +41,12 @@ jobs:
       - name: Verify zero stale asset versions or legacy path references
         run: |
           set -e
+          if grep -rnE "box everyday|box_client|v=10|/static/js|/static/css|/static/suite|/app/static/vendor" apps shared deploy; then
+            echo "ERROR: Found stale legacy asset/version reference in runtime/deploy code."
+            exit 1
+          fi
           if grep -rnE --exclude-dir=.git --exclude-dir=studies --exclude-dir=.github \
-            "box everyday|box_client|v=10|/static/js|/static/css|/static/suite|/app/static/vendor" .; then
+            'box everyday|box_client|v=10|/static/suite|/app/static/vendor|["'\''(=]/static/js|["'\''(=]/static/css' .; then
             echo "ERROR: Found stale legacy asset/version reference above."
             exit 1
           fi
@@ -48,6 +54,9 @@ jobs:
       - name: Verify required entrypoints, workflows, and deploy config
         run: |
           python3 -m json.tool .github/deploy-config.json >/dev/null
+          for spec in docs/architecture/*.architecture.json; do
+            python3 -m json.tool "$spec" >/dev/null
+          done
           test -f apps/scrubdoc/main.py
           test -f apps/scrubdoc/Dockerfile
           test -f apps/scrubdoc/static/icon.svg
@@ -62,3 +71,8 @@ jobs:
           test -f deploy/cloudbuild.yaml
           test -f deploy/setup_gcp_wif.sh
           test -f .github/workflows/deploy.yml
+          test -f .github/workflows/archify.yml
+          test -f scripts/render_archify.py
+          test -f docs/architecture/docworks.architecture.json
+          test -f docs/architecture/scrubdoc.architecture.json
+          test -f docs/architecture/diffdoc.architecture.json
